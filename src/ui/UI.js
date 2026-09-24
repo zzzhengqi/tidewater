@@ -1,4 +1,5 @@
 import { icon, brandMark } from './icons.js';
+import { languages, translate } from './i18n.js';
 
 // Tidewater UI: settings panel (tabs → folders → controls), HUD, help,
 // photo mode, start overlay and loader. Plain DOM, no dependencies.
@@ -1888,6 +1889,10 @@ export class UI {
 		this._lastAct = performance.now();
 		this._idle = false;
 		this._ac = new AbortController();
+		this._translations = new WeakMap();
+		try { this.language = localStorage.getItem( 'tidewater.ui.language' ) || 'zh-CN'; }
+		catch { this.language = 'zh-CN'; }
+		if ( ! languages.some( ( [ code ] ) => code === this.language ) ) this.language = 'zh-CN';
 
 		// Hooks: assign a function (or an array of functions).
 		this.onPhotoMode = null; // ( on ) photo mode entered / left (P key or setPhotoMode)
@@ -1901,6 +1906,8 @@ export class UI {
 		document.getElementById( 'fps' )?.remove();
 
 		this.root = h( 'div', 'tw-root', { 'data-panel': 'closed' } );
+		this.root.lang = this.language;
+		this.root.dataset.lang = this.language;
 		this._buildHUD();
 		this._buildPanel();
 		this._buildHelp();
@@ -1908,10 +1915,65 @@ export class UI {
 		this.tipEl = h( 'div', 'tw-tip', { role: 'tooltip', 'aria-hidden': 'true' } );
 		this.root.append( this.tipEl );
 		this.container.append( this.root );
+		this._localize( this.root );
+		this._languageObserver = new MutationObserver( ( changes ) => {
+			for ( const change of changes ) {
+				if ( change.type === 'childList' ) for ( const node of change.addedNodes ) this._localize( node );
+				else if ( change.type === 'characterData' ) this._localize( change.target );
+				else this._localizeAttribute( change.target, change.attributeName );
+			}
+		} );
+		const translationChanges = { subtree: true, childList: true, characterData: true, attributes: true,
+			attributeFilter: [ 'aria-label', 'aria-valuetext', 'data-tip', 'data-tip-hint', 'title', 'placeholder' ] };
+		this._languageObserver.observe( this.panel, translationChanges );
+		this._languageObserver.observe( this.rail, translationChanges );
 
 		this._bindGlobal();
 		this._timer = setInterval( () => this._tick(), 250 );
 
+	}
+
+	setLanguage( language ) {
+		if ( ! languages.some( ( [ code ] ) => code === language ) ) return;
+		this.language = language;
+		this.root.lang = language;
+		this.root.dataset.lang = language;
+		if ( this.languageSelect ) this.languageSelect.value = language;
+		this._localize( this.root );
+		this._closeMenu();
+		this._hideTip();
+		try { localStorage.setItem( 'tidewater.ui.language', language ); } catch { /* storage unavailable */ }
+	}
+
+	_localizeAttribute( el, name ) {
+		if ( ! el?.hasAttribute?.( name ) ) return;
+		let state = this._translations.get( el );
+		if ( ! state ) { state = new Map(); this._translations.set( el, state ); }
+		const value = el.getAttribute( name ), previous = state.get( name );
+		const source = previous && value === previous.result ? previous.source : value;
+		const result = translate( source, this.language );
+		state.set( name, { source, result } );
+		if ( value !== result ) el.setAttribute( name, result );
+	}
+
+	_localizeNode( root ) {
+		if ( root.nodeType === Node.TEXT_NODE ) {
+			const value = root.nodeValue, previous = this._translations.get( root );
+			const source = previous && value === previous.result ? previous.source : value;
+			const result = source.replace( /^(\s*)(.*?)(\s*)$/s, ( _, a, word, b ) => a + translate( word, this.language ) + b );
+			this._translations.set( root, { source, result } );
+			if ( value !== result ) root.nodeValue = result;
+			return;
+		}
+		if ( root.nodeType !== Node.ELEMENT_NODE ) return;
+		for ( const name of [ 'aria-label', 'aria-valuetext', 'data-tip', 'data-tip-hint', 'title', 'placeholder' ] ) this._localizeAttribute( root, name );
+	}
+
+	_localize( root ) {
+		this._localizeNode( root );
+		if ( root.nodeType !== Node.ELEMENT_NODE ) return;
+		const walker = document.createTreeWalker( root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT );
+		while ( walker.nextNode() ) this._localizeNode( walker.currentNode );
 	}
 
 	// ── builders ────────────────────────────────────────────────────────────
@@ -2067,6 +2129,11 @@ export class UI {
 		const head = h( 'header', 'tw-panel-head' );
 		head.append( h( 'div', 'tw-panel-title', { text: 'Settings' } ) );
 		const actions = h( 'div', 'tw-panel-actions' );
+		this.languageSelect = h( 'select', 'tw-language', { 'aria-label': 'Language' } );
+		for ( const [ code, name ] of languages ) this.languageSelect.append( h( 'option', '', { value: code, text: name } ) );
+		this.languageSelect.value = this.language;
+		this.languageSelect.addEventListener( 'change', () => this.setLanguage( this.languageSelect.value ) );
+		actions.append( this.languageSelect );
 		const action = ( name, tip, fn ) => {
 
 			const b = h( 'button', 'tw-icon-btn', { type: 'button', 'aria-label': tip, 'data-tip': tip, html: icon( name ) } );
@@ -2516,6 +2583,7 @@ export class UI {
 		} );
 		this._isolate( menu );
 		this.root.append( menu );
+		this._localize( menu );
 
 		const r = anchor.getBoundingClientRect();
 		menu.style.minWidth = `${ Math.round( r.width ) }px`;
@@ -3256,6 +3324,7 @@ export class UI {
 	dispose() {
 
 		clearInterval( this._timer );
+		this._languageObserver.disconnect();
 		this._ac.abort();
 		for ( const t of this._toasts ) clearTimeout( t.timer );
 		this._closeMenu();
