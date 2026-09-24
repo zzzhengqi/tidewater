@@ -96,6 +96,9 @@ npm run dev      # http://127.0.0.1:5188
 npm run build    # static build in dist/
 ```
 
+To inspect the multilingual settings without WebGPU, open `test/i18n.html` directly in a browser.
+It is a standalone preview; after changing the UI, regenerate it with `node test/build-i18n-preview.js`.
+
 Every push to `main` deploys to GitHub Pages through `.github/workflows/deploy.yml`.
 
 ## Project layout
