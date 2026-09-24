@@ -3,7 +3,7 @@
 A real-time tropical island and ocean for the browser, built with [three.js](https://threejs.org),
 WebGPU and TSL (three.js' shader language). Walk the beach, swim the reef, drive the boat, and watch a humpback breach.
 
-**Live demo:** https://dgreenheck.github.io/tidewater/
+**Live demo:** https://zzzhengqi.github.io/tidewater/
 
 ![Tidewater at golden hour](docs/screenshot.jpg)
 
