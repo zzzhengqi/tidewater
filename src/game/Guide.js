@@ -1,11 +1,12 @@
-import { STAND } from './FishStand.js';
-import { CHANDLERY } from './Chandlery.js';
 import { t as tr, onLanguageChange } from '../ui/i18n.js';
+import { Options } from '../core/Options.js';
+import { capsOf } from '../core/Keymap.js';
 
-// First-play guide:
-//  - an intro (3 cards) the first time the game starts, after the start overlay: the goal, the fishing
-//    controls, getting around and where Joe and Marta are (live direction and distance; their
-//    markers pulse on the minimap). Enter / Space / click: next, Esc: skip. Replay from the help (F1).
+// First-play guide (the 'guide' gameplay option switches all of it off):
+//  - a short overview the first time the game starts, after the start overlay: what there is to do
+//    here (time, sun and sea in the settings, swimming, the boat, the free camera, photo mode, the
+//    equipment wheel; fishing only as one option among them). Enter / Space / click: close, Esc: skip.
+//    Again from the help (F1).
 //  - one-time tips the first time something happens (rod out, first nibble, fish on, first catch,
 //    full cooler, next to the boat, at Joe's, at Marta's), in a card above the minimap.
 // Seen state in localStorage ('tidewater.guide'), wrapped in try/catch.
@@ -31,13 +32,6 @@ const CSS = /* css */`
 .gm-guide-row .k { display: flex; flex-wrap: wrap; gap: 3px; }
 .gm-guide-row kbd { font: 600 var(--tw-fs-xs) var(--tw-mono); color: var(--tw-ink); padding: 1px calc(6 * var(--tw-u)); border-radius: calc(4 * var(--tw-u));
 	border: 1px solid var(--tw-line-2); background: var(--tw-fill); }
-.gm-guide-where { display: grid; gap: var(--tw-2); margin: var(--tw-1) 0 var(--tw-3); }
-.gm-guide-where div { display: flex; align-items: center; gap: var(--tw-3); padding: var(--tw-2) var(--tw-3); border-radius: var(--tw-r-md); background: var(--tw-fill); border: 1px solid var(--tw-line); }
-.gm-guide-where i { width: calc(12 * var(--tw-u)); height: calc(12 * var(--tw-u)); border-radius: 50%; flex: none; box-shadow: 0 0 0 1.5px rgba(255,255,255,0.8); }
-.gm-guide-where .is-joe i { background: var(--tw-sun); }
-.gm-guide-where .is-marta i { background: var(--tw-aqua); }
-.gm-guide-where span { flex: 1; }
-.gm-guide-where em { font-style: normal; font-family: var(--tw-mono); font-size: var(--tw-fs-sm); color: var(--tw-ink-2); white-space: nowrap; }
 .gm-guide-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--tw-3); margin-top: var(--tw-4); }
 .gm-guide-dots { display: flex; gap: 6px; }
 .gm-guide-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--tw-fill-2); transition: background var(--tw-med), width var(--tw-med) var(--tw-ease); }
@@ -63,42 +57,27 @@ const CSS = /* css */`
 @media (prefers-reduced-motion: reduce) { .gm-guide-card, .gm-coach { transform: none !important; } }
 `;
 
-const KEY_WORDS = { LMB: 'key.lmb', RMB: 'key.rmb', Hold: 'key.hold' };
-const k = ( ...keys ) => keys.map( ( x ) => `<kbd>${ KEY_WORDS[ x ] ? tr( KEY_WORDS[ x ] ) : x }</kbd>` ).join( '' );
-const row = ( keys, key ) => `<div class="gm-guide-row"><span class="k">${ keys }</span><span>${ tr( key ) }</span></div>`;
+// key caps from the key registry (core/Keymap.js), so the overview never disagrees with the controls
+const KEY_WORDS = { LMB: 'key.lmb', RMB: 'key.rmb', Space: 'key.space' };
+const kbd = ( c ) => c === 'WASD' ? '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>' : `<kbd>${ KEY_WORDS[ c ] ? tr( KEY_WORDS[ c ] ) : c }</kbd>`;
+const row = ( ids, key ) => `<div class="gm-guide-row"><span class="k">${ ids.map( ( id ) => kbd( capsOf( id )[ 0 ] ) ).join( '' ) }</span><span>${ tr( key ) }</span></div>`;
 
 // cards and tips are built from the locale each time they are shown (guide.*, tip.<id>)
 const CARDS = [
 	{
-		eyebrow: 'guide.welcome.eyebrow',
-		title: 'guide.welcome.title',
-		body: () => tr( 'guide.welcome.body' ),
-	},
-	{
-		eyebrow: 'guide.fishing.eyebrow',
-		title: 'guide.fishing.title',
-		body: () => `<div class="gm-guide-list">
-			${ row( k( 'R' ), 'guide.fishing.rod' ) }
-			${ row( k( 'Hold', 'LMB' ), 'guide.fishing.cast' ) }
-			${ row( k( 'LMB' ), 'guide.fishing.strike' ) }
-			${ row( k( 'Hold', 'LMB' ), 'guide.fishing.reel' ) }
-			${ row( k( 'RMB' ), 'guide.fishing.empty' ) }
-			${ row( k( 'I' ), 'guide.fishing.cooler' ) }
-		</div>`,
-	},
-	{
-		eyebrow: 'guide.around.eyebrow',
-		title: 'guide.around.title',
-		body: () => `<div class="gm-guide-list">
-			${ row( k( 'W', 'A', 'S', 'D' ), 'guide.around.move' ) }
-			${ row( k( 'E' ), 'guide.around.interact' ) }
-			${ row( k( 'F1' ), 'guide.around.help' ) }
+		eyebrow: 'guide.overview.eyebrow',
+		title: 'guide.overview.title',
+		body: () => `<p>${ tr( 'guide.overview.lead' ) }</p>
+		<div class="gm-guide-list">
+			${ row( [ 'settings' ], 'guide.overview.settings' ) }
+			${ row( [ 'move', 'down' ], 'guide.overview.swim' ) }
+			${ row( [ 'interact' ], 'guide.overview.boat' ) }
+			${ row( [ 'freeCamera' ], 'guide.overview.fly' ) }
+			${ row( [ 'photo' ], 'guide.overview.photo' ) }
+			${ row( [ 'equipment' ], Options.get( 'fishing' ) ? 'guide.overview.wheelFishing' : 'guide.overview.wheel' ) }
+			${ row( [ 'help' ], 'guide.overview.help' ) }
 		</div>
-		<div class="gm-guide-where">
-			<div class="is-joe"><i></i><span>${ tr( 'guide.around.joe' ) }</span><em data-where="joe"></em></div>
-			<div class="is-marta"><i></i><span>${ tr( 'guide.around.marta' ) }</span><em data-where="marta"></em></div>
-		</div>
-		<p style="margin:0;color:var(--tw-ink-3);font-size:var(--tw-fs-sm)">${ tr( 'guide.around.map' ) }</p>`,
+		<p style="margin:0;color:var(--tw-ink-3);font-size:var(--tw-fs-sm)">${ tr( 'guide.overview.off' ) }</p>`,
 	},
 ];
 
@@ -112,15 +91,6 @@ const h = ( tag, cls, html ) => {
 	return e;
 
 };
-
-// compass word for the direction from (x, z) to (tx, tz); north is -z
-export function compassWord( x, z, tx, tz ) {
-
-	const a = Math.atan2( tx - x, - ( tz - z ) ); // 0 north, clockwise
-	const W = [ 'north', 'northEast', 'east', 'southEast', 'south', 'southWest', 'west', 'northWest' ]; // compass.* keys
-	return W[ ( ( Math.round( a / ( Math.PI / 4 ) ) % 8 ) + 8 ) % 8 ];
-
-}
 
 export class Guide {
 
@@ -136,7 +106,7 @@ export class Guide {
 		this.seen = this._load();
 		this.el = h( 'div', 'gm-guide tw-interactive', `<div class="gm-guide-card tw-glass" role="dialog" aria-modal="true" aria-live="polite">
 			<div class="gm-guide-eyebrow"></div><h2></h2><div class="gm-guide-body"></div>
-			<div class="gm-guide-foot"><div class="gm-guide-dots">${ CARDS.map( () => '<span></span>' ).join( '' ) }</div>
+			<div class="gm-guide-foot"><div class="gm-guide-dots">${ CARDS.length > 1 ? CARDS.map( () => '<span></span>' ).join( '' ) : '' }</div>
 			<div class="gm-guide-btns"><span class="gm-guide-hint"></span><button type="button" class="gm-btn is-ghost gm-guide-skip"></button><button type="button" class="gm-btn gm-guide-next"></button></div></div></div>` );
 		this.card = this.el.firstChild;
 		this.eyebrow = this.el.querySelector( '.gm-guide-eyebrow' );
@@ -172,10 +142,9 @@ export class Guide {
 
 		this.open = false;
 		this.step = 0;
-		this._wait = this.seen.intro ? - 1 : 0.8; // seconds after the start overlay before the intro
+		this._wait = this.seen.overview || ! Options.get( 'guide' ) ? - 1 : 0.8; // seconds after the start overlay before the overview
 		this._coachT = 0;
 		this._queue = [];
-		this._whereT = 0;
 		this._prev = { lastCatch: game.state.lastCatch };
 
 		// while the intro is up it owns the keyboard and the mouse (capture phase, before the game's input)
@@ -201,6 +170,16 @@ export class Guide {
 
 		};
 
+		Options.onChange( ( id, on ) => {
+
+			if ( id === 'guide' && ! on ) {
+
+				this.close();
+				this._wait = - 1;
+
+			}
+
+		} );
 		window.addEventListener( 'keydown', this._onKey, true );
 		window.addEventListener( 'mousedown', this._onDown, true );
 
@@ -247,9 +226,7 @@ export class Guide {
 		this.title.textContent = tr( c.title );
 		this.body.innerHTML = c.body();
 		this.dots.forEach( ( d, j ) => d.classList.toggle( 'is-on', j === i ) );
-		this.nextBtn.textContent = tr( i === CARDS.length - 1 ? 'guide.letsFish' : 'guide.next' );
-		if ( this.minimap ) this.minimap.highlight( i === CARDS.length - 1 ? [ 'joe', 'marta' ] : [] );
-		this._whereT = 0;
+		this.nextBtn.textContent = tr( i === CARDS.length - 1 ? 'guide.start' : 'guide.next' );
 		if ( ! this.open ) {
 
 			this.open = true;
@@ -271,8 +248,7 @@ export class Guide {
 		if ( ! this.open ) return;
 		this.open = false;
 		this.el.classList.remove( 'is-on' );
-		if ( this.minimap ) this.minimap.highlight( [] );
-		this.seen.intro = true;
+		this.seen.overview = true;
 		this._save();
 
 	}
@@ -315,23 +291,11 @@ export class Guide {
 
 		}
 
-		if ( this.open ) {
+		if ( this.open ) return;
+		if ( ! Options.get( 'guide' ) ) {
 
-			// live direction and distance to Joe and Marta
-			this._whereT -= dt;
-			if ( this._whereT <= 0 && this.step === CARDS.length - 1 ) {
-
-				this._whereT = 0.25;
-				const x = p.position.x, z = p.position.z;
-				for ( const [ id, t ] of [ [ 'joe', STAND ], [ 'marta', CHANDLERY ] ] ) {
-
-					const el = this.body.querySelector( `[data-where="${ id }"]` );
-					if ( el ) el.textContent = tr( 'guide.where', { m: Math.round( Math.hypot( t.x - x, t.z - z ) ), dir: tr( 'compass.' + compassWord( x, z, t.x, t.z ) ) } );
-
-				}
-
-			}
-
+			if ( this._current ) this._hideCoach();
+			this._queue.length = 0;
 			return;
 
 		}
@@ -356,7 +320,7 @@ export class Guide {
 
 			const bt = app.boatCtl;
 			if ( bt && Math.hypot( bt.position.x - p.position.x, bt.position.z - p.position.z ) < 9 ) this.tip( 'boat' );
-			for ( const v of g.vendors ) if ( v.inRange( p.position ) ) this.tip( v.kind === 'buyer' ? 'joe' : 'marta' );
+			if ( Options.get( 'fishing' ) ) for ( const v of g.vendors ) if ( v.inRange( p.position ) ) this.tip( v.kind === 'buyer' ? 'joe' : 'marta' );
 
 		}
 

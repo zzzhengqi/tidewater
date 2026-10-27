@@ -98,7 +98,10 @@ export function t( key, params ) {
 // English value → key (first key wins when two keys share a value). Only these namespaces are looked up
 // by English text, so short strings elsewhere ('E' as a compass point, 'Fish', 'Next') never replace
 // a key cap or a number in the panel.
-export const PHRASE_NAMESPACES = [ 'language', 'ui', 'settings', 'phase', 'mode', 'prompt', 'toast', 'loader', 'error' ];
+export const PHRASE_NAMESPACES = [ 'language', 'ui', 'settings', 'options', 'phase', 'mode', 'prompt', 'toast', 'loader', 'error' ];
+
+// the English source of a key (for components built from English labels, like the settings panel)
+export const english = ( key ) => en[ key ] ?? key;
 let reverse = null;
 
 export function keyOf( english ) {

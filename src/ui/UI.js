@@ -1,4 +1,6 @@
 import { icon, brandMark } from './icons.js';
+import { KEYMAP, SECTIONS, capsOf, codesOf } from '../core/Keymap.js';
+import { Options } from '../core/Options.js';
 import { languages, t as tr, phrase, getLanguage, setLanguage, onLanguageChange, localizeStatic } from './i18n.js';
 
 // Tidewater UI: settings panel (tabs → folders → controls), HUD, help,
@@ -1942,6 +1944,7 @@ export class UI {
 		this._languageObserver.observe( this.panel, watch );
 		this._languageObserver.observe( this.rail, watch );
 		this._offLanguage = onLanguageChange( ( code ) => this._applyLanguage( code ) );
+		this._offOptions = Options.onChange( () => this._renderHelp() ); // option-bound rows come and go
 
 		this._bindGlobal();
 		this._timer = setInterval( () => this._tick(), 250 );
@@ -2251,10 +2254,12 @@ export class UI {
 
 	_renderHelp() {
 
-		const k = ( ...keys ) => keys.map( ( x ) => `<kbd>${ keyCap( x ) }</kbd>` ).join( '' );
-		const row = ( keys, key ) => `<div class="tw-help-row"><span class="tw-keys">${ keys }</span><span class="tw-help-text">${ tr( key ) }</span></div>`;
-		const wasd = '<span class="tw-wasd"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>';
-		const mouse = `<kbd class="tw-kbd-ico" aria-label="${ tr( 'ui.mouse' ) }">${ icon( 'mouse' ) }</kbd>`;
+		// generated from the key registry (core/Keymap.js); rows tied to a gameplay option follow it
+		const kbd = ( c ) => c === 'WASD' ? '<span class="tw-wasd"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>'
+			: c === 'Mouse' ? `<kbd class="tw-kbd-ico" aria-label="${ tr( 'ui.mouse' ) }">${ icon( 'mouse' ) }</kbd>`
+				: `<kbd>${ keyCap( c ) }</kbd>`;
+		const row = ( k ) => `<div class="tw-help-row"><span class="tw-keys">${ capsOf( k.id ).map( kbd ).join( '' ) }</span><span class="tw-help-text">${ tr( k.label ) }${ k.sub ? `<small>${ tr( k.sub ) }</small>` : '' }</span></div>`;
+		const sections = SECTIONS.map( ( [ id, title ] ) => `<section><h3>${ tr( title ) }</h3>${ KEYMAP.filter( ( k ) => k.section === id && ( ! k.option || Options.get( k.option ) ) ).map( row ).join( '' ) }</section>` ).join( '' );
 		const el = this.helpEl;
 		el.innerHTML = `
 			<div class="tw-help-card tw-glass">
@@ -2265,38 +2270,9 @@ export class UI {
 					</div>
 					<button type="button" class="tw-icon-btn tw-help-close" aria-label="${ tr( 'ui.close' ) }" data-tip="${ tr( 'ui.closeKey' ) }">${ icon( 'close' ) }</button>
 				</header>
-				<div class="tw-help-grid">
-					<section>
-						<h3>${ tr( 'help.sectionMove' ) }</h3>
-						${ row( wasd, 'help.move' ) }
-						${ row( mouse, 'help.lookAround' ) }
-						${ row( k( 'Shift' ), 'help.sprint' ) }
-						${ row( k( 'Space' ), 'help.jump' ) }
-						${ row( k( 'C' ), 'help.crouch' ) }
-					</section>
-					<section>
-						<h3>${ tr( 'help.sectionInteract' ) }</h3>
-						${ row( k( 'E' ), 'help.interact' ) }
-						${ row( k( 'V' ), 'help.boatCamera' ) }
-						${ row( k( 'R' ), 'help.rod' ) }
-						${ row( k( 'LMB' ), 'help.cast' ) }
-						${ row( k( 'RMB' ), 'help.reelEmpty' ) }
-						${ row( k( 'I' ), 'help.cooler' ) }
-						${ row( k( 'F' ), 'help.freeCamera' ) }
-						${ row( k( 'T' ), 'help.pauseTime' ) }
-						${ row( k( 'L' ), 'help.flashlight' ) }
-						${ row( k( 'M' ), 'help.mute' ) }
-					</section>
-					<section>
-						<h3>${ tr( 'help.sectionInterface' ) }</h3>
-						${ row( k( 'H' ), 'help.settingsPanel' ) }
-						${ row( k( 'P' ), 'help.photoMode' ) }
-						${ row( k( 'F1' ) + k( '?' ), 'help.thisSheet' ) }
-						${ row( k( 'Esc' ), 'help.releaseMouse' ) }
-					</section>
-				</div>
+				<div class="tw-help-grid">${ sections }</div>
 				<div class="tw-help-guide">
-					<span>${ tr( 'help.howToPlay' ) }</span>
+					<span>${ tr( Options.get( 'fishing' ) ? 'help.fishing' : 'help.explore' ) }</span>
 					<button type="button" class="gm-btn is-ghost tw-help-replay">${ tr( 'help.replayGuide' ) }</button>
 				</div>
 			</div>`;
@@ -2471,7 +2447,7 @@ export class UI {
 
 		if ( isTypingTarget( e.target ) || e.ctrlKey || e.metaKey || e.altKey ) return;
 
-		if ( e.code === 'F1' || e.key === '?' ) {
+		if ( codesOf( 'help' ).includes( e.code ) || e.key === '?' ) {
 
 			e.preventDefault();
 			if ( ! e.repeat ) {
@@ -2485,7 +2461,7 @@ export class UI {
 
 		}
 
-		if ( e.code === 'Escape' ) {
+		if ( codesOf( 'back' ).includes( e.code ) ) {
 
 			if ( this._menu ) this._closeMenu( true );
 			else if ( this._help ) this.toggleHelp( false );
@@ -2495,12 +2471,12 @@ export class UI {
 
 		if ( e.repeat || this._start ) return;
 
-		if ( e.code === 'KeyH' ) {
+		if ( codesOf( 'settings' ).includes( e.code ) ) {
 
 			if ( this._photo ) this.setPhotoMode( false );
 			this.togglePanel();
 
-		} else if ( e.code === 'KeyP' ) {
+		} else if ( codesOf( 'photo' ).includes( e.code ) ) {
 
 			this.setPhotoMode( ! this._photo );
 
@@ -3503,6 +3479,7 @@ export class UI {
 		clearInterval( this._timer );
 		this._languageObserver.disconnect();
 		this._offLanguage();
+		this._offOptions();
 		this._ac.abort();
 		for ( const t of this._toasts ) clearTimeout( t.timer );
 		this._closeMenu();

@@ -4,6 +4,7 @@ import { GameHUD } from '../src/game/GameHUD.js';
 import { GameState } from '../src/game/GameState.js';
 import { Guide } from '../src/game/Guide.js';
 import { languages, t, setLanguage, getLanguage, onLanguageChange } from '../src/ui/i18n.js';
+import { Equipment } from '../src/core/Equipment.js';
 
 // Standalone language preview (test/i18n.html, built by test/build-i18n-preview.js): the real settings
 // panel (AppUI on a stub app), help sheet, start overlay, HUD, the fishing HUD / catch card / cooler /
@@ -36,10 +37,14 @@ app.camera = { fov: 60 };
 app.fps = 60;
 app.cpuMs = 4.2;
 app.sceneRenderer = { width: 1920, height: 1080 };
+app.equipment = new Equipment();
+app.equipment.registry.add( { id: 'rod', label: 'equip.rod', hint: 'equip.rodHint', unavailableHint: 'equip.rodUnavailable', icon: 'rod', order: 10, equip() {}, unequip() {} } );
+app.game = null;
+let appUI = null;
 let panelOk = true;
 try {
 
-	new AppUI( app, ui );
+	appUI = new AppUI( app, ui );
 
 } catch ( e ) {
 
@@ -68,6 +73,7 @@ const fight = { tension: 0.62, band: [ 0.35, 0.8 ], stamina: 0.55, distance: 11.
 function reset() {
 
 	if ( ui._start ) ui.startEl.click(); // the start overlay leaves on a click
+	if ( appUI ) appUI.wheel.close();
 	ui.togglePanel( false );
 	ui.toggleHelp( false );
 	hud.hideCatch();
@@ -132,9 +138,8 @@ const VIEWS = {
 	cooler: [ 'inv.cooler', () => hud.toggleInventory( true ) ],
 	joe: [ 'vendor.joe.name', () => hud.openStand( joe ) ],
 	marta: [ 'vendor.marta.name', () => hud.openStand( marta ) ],
-	guide1: [ 'guide.welcome.eyebrow', () => guide.show( 0 ) ],
-	guide2: [ 'guide.fishing.eyebrow', () => guide.show( 1 ) ],
-	guide3: [ 'guide.around.eyebrow', () => guide.show( 2 ) ],
+	wheel: [ 'wheel.equipment', () => appUI && appUI.wheel.open() ],
+	guide: [ 'guide.overview.eyebrow', () => guide.show( 0 ) ],
 	tip: [ 'guide.tip', () => {
 
 		guide._current = 'fishOn';

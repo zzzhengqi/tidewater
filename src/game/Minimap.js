@@ -2,6 +2,7 @@ import { WORLD } from '../world/WorldLayout.js';
 import { STAND } from './FishStand.js';
 import { CHANDLERY } from './Chandlery.js';
 import { t as tr, onLanguageChange } from '../ui/i18n.js';
+import { Options } from '../core/Options.js';
 
 // Minimap, lower right: the island baked once from the terrain data into a 2D canvas (depth-tinted
 // sea, reef and seagrass, sand, grass and forest by height, rock, paths, village pads, the pier,
@@ -124,8 +125,9 @@ export class Minimap {
 		};
 
 		this.markers = [
-			{ id: 'joe', ...mk( 'joe', ICON.fish ), pos: () => ( { x: STAND.x, z: STAND.z } ) },
-			{ id: 'marta', ...mk( 'marta', ICON.anchor ), pos: () => ( { x: CHANDLERY.x, z: CHANDLERY.z } ) },
+			// the traders only matter with fishing on (gameplay options)
+			{ id: 'joe', ...mk( 'joe', ICON.fish ), pos: () => ( { x: STAND.x, z: STAND.z } ), hideWhen: () => ! Options.get( 'fishing' ) },
+			{ id: 'marta', ...mk( 'marta', ICON.anchor ), pos: () => ( { x: CHANDLERY.x, z: CHANDLERY.z } ), hideWhen: () => ! Options.get( 'fishing' ) },
 			{ id: 'boat', ...mk( 'boat', ICON.boat ), pos: () => {
 
 				const b = game.app.boatCtl;
@@ -377,7 +379,7 @@ export class Minimap {
 		place( this.north, 0, - 1e6, 9 );
 
 		// fish finder: the richest water nearby, refreshed now and then
-		const finder = this.game.state.stats.finder;
+		const finder = this.game.state.stats.finder && Options.get( 'fishing' );
 		this._fishT -= dt;
 		if ( finder && this._fishT <= 0 ) {
 

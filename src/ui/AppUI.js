@@ -2,6 +2,10 @@ import * as THREE from '../engine/index.js';
 import { UI } from './UI.js';
 import { G } from '../core/Globals.js';
 import { GroundBounce } from '../materials/GroundBounce.js';
+import { Options } from '../core/Options.js';
+import { codesOf } from '../core/Keymap.js';
+import { english } from './i18n.js';
+import { RadialWheel } from './RadialWheel.js';
 
 // Binds the Tidewater UI (panel + HUD) to the running app.
 const SEA = {
@@ -195,6 +199,39 @@ export class AppUI {
 
 		} } );
 		view.addButton( { label: 'Free camera (F)', icon: 'camera', onClick: () => app.setFreeCam( ! app.freeCam ) } );
+
+		// ---------------------------------------------------------------- Gameplay
+		// one switch per gameplay option (core/Options.js: a new option shows up here by itself)
+		const play = {};
+		for ( const o of Options.list() ) Object.defineProperty( play, o.id, { enumerable: true, get: () => Options.get( o.id ), set: ( v ) => Options.set( o.id, v ) } );
+		const options = ui.addTab( 'gameplay', 'Gameplay', 'gameplay' ).addFolder( 'Gameplay options', { icon: 'gameplay' } );
+		for ( const o of Options.list() ) options.addToggle( { label: english( o.label ), tooltip: o.tip ? english( o.tip ) : undefined, object: play, key: o.id } );
+		const applyOptions = () => {
+
+			ui.root.classList.toggle( 'is-light-hud', Options.get( 'lightHud' ) );
+			ui.root.classList.toggle( 'is-no-map', ! Options.get( 'minimap' ) );
+
+		};
+
+		applyOptions();
+		Options.onChange( applyOptions );
+
+		// ---------------------------------------------------------------- the equipment wheel (R)
+		const eq = app.equipment;
+		this.wheel = new RadialWheel( ui, {
+			title: 'wheel.equipment',
+			registry: eq.registry,
+			current: () => eq.current,
+			onSelect: ( id ) => eq.set( id ),
+			codes: codesOf( 'equipment' ),
+			closeCodes: [ ...codesOf( 'move' ), ...codesOf( 'up' ), ...codesOf( 'down' ), ...codesOf( 'sprint' ) ],
+			canOpen: () => {
+
+				if ( ui._start || ui._help || ui._photo || ( app.game && app.game.guide && app.game.guide.open ) ) return false;
+				return eq.busy ? 'wheel.busy' : true;
+
+			},
+		} );
 
 		// ---------------------------------------------------------------- Effects
 		const fx = ui.addTab( 'effects', 'Effects', 'effects' );

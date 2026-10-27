@@ -13,13 +13,15 @@ import { GameHUD } from './GameHUD.js';
 import { Minimap } from './Minimap.js';
 import { Guide } from './Guide.js';
 import { t } from '../ui/i18n.js';
+import { Options } from '../core/Options.js';
+import { pressed } from '../core/Keymap.js';
 import { fishName, gearName, gearLabel, kg, litres, money, vendorText } from './text.js';
 
 // how long the catch card stays up unless dismissed (ms)
 const CATCH_CARD_MS = 9000;
 
-// The fishing game on top of the world:
-//   R          take out / put away the rod (on foot, on the pier, on the boat's deck)
+// The fishing game on top of the world (optional: the 'fishing' gameplay option, core/Options.js):
+//   R          the equipment wheel: pick the rod to take it out (on foot, on the pier, on the boat's deck)
 //   hold LMB   wind up, release to cast (hold longer = farther)
 //   LMB        strike when a fish takes the bobber ("!"); then hold LMB to reel, let go to ease off
 //   RMB        reel an empty line back in
@@ -57,6 +59,35 @@ export class Game {
 		this._tmp = new Vector3();
 		this.applyGear();
 		this.state.onChange( () => this.applyGear() );
+
+		// the rod on the equipment wheel: the same take-out / put-away as before, only the entry changed
+		app.equipment.registry.add( {
+			id: 'rod', label: 'equip.rod', hint: 'equip.rodHint', unavailableHint: 'equip.rodUnavailable', icon: 'rod', order: 10,
+			visible: () => Options.get( 'fishing' ),
+			available: () => this.canFish,
+			busy: () => !! this.fight || !! this.landing,
+			equip: () => {
+
+				this.rod.equip( true );
+				this.toast( t( 'game.rodOut' ), 1600 );
+
+			},
+			unequip: ( { silent = false } = {} ) => {
+
+				this.rod.equip( false );
+				this.cancelLine( silent );
+				if ( ! silent ) this.toast( t( 'game.rodAway' ), 1600 );
+
+			},
+		} );
+		// fishing switched off: the rod goes (Equipment.update), the panels close
+		Options.onChange( ( id, on ) => {
+
+			if ( id !== 'fishing' || on || ! this.hud ) return;
+			this.hud.toggleInventory( false );
+			this.hud.closeStand();
+
+		} );
 
 	}
 
@@ -156,25 +187,12 @@ export class Game {
 
 		}
 
-		const can = this.canFish;
-		if ( inp.hit( 'KeyR' ) && can && ! this.fight ) {
+		const can = this.canFish, fishing = Options.get( 'fishing' );
+		// swimming, driving, free camera, fishing switched off: the line comes in and the rod goes away
+		app.equipment.update();
 
-			rod.equip( ! rod.equipped );
-			if ( ! rod.equipped ) this.cancelLine();
-			this.toast( t( rod.equipped ? 'game.rodOut' : 'game.rodAway' ), 1600 );
-
-		}
-
-		if ( ! can && rod.equipped ) {
-
-			// swimming, driving, free camera: the line comes in and the rod goes away
-			this.cancelLine( true );
-			rod.equip( false );
-
-		}
-
-		if ( this.hud && ( inp.hit( 'KeyI' ) || inp.hit( 'Tab' ) ) ) this.hud.toggleInventory();
-		if ( this.hud && inp.hit( 'Escape' ) ) {
+		if ( this.hud && fishing && pressed( inp, 'cooler' ) ) this.hud.toggleInventory();
+		if ( this.hud && pressed( inp, 'back' ) ) {
 
 			this.hud.toggleInventory( false );
 			this.hud.closeStand();
@@ -259,28 +277,30 @@ export class Game {
 
 		p.busy = rod.lineInWater || rod.state === 'windup';
 
-		this.updateBoat( dt );
+		if ( fishing ) this.updateBoat( dt );
 
-		// the traders
-		for ( const v of this.vendors ) v.update( dt, p.mode === 'walk' ? p.position : null );
-		this.updateVendors( inp, p );
+		// the traders (they stand there either way; trading only with fishing on)
+		for ( const v of this.vendors ) v.update( dt, p.mode === 'walk' && fishing ? p.position : null );
+		if ( fishing ) this.updateVendors( inp, p );
 
 		// prompts when the player has nothing to say
-		if ( ! p.prompt && can ) p.prompt = this.prompt();
+		if ( ! p.prompt && can && fishing ) p.prompt = this.prompt();
 
 		const aboard = p.mode === 'boat' || p.mode === 'deck';
 		// the catch card's live fish portrait (or one queued thumbnail)
 		if ( this.hud && this.hud.portrait ) this.hud.portrait.update( dt );
 		if ( this.hud ) this.hud.update( {
-			fuel: aboard ? { litres: this.state.fuelL, tank: this.state.stats.fuelL } : null,
-			sonar: aboard && this.state.stats.finder ? this._sonar : null,
+			fuel: aboard && fishing ? { litres: this.state.fuelL, tank: this.state.stats.fuelL } : null,
+			sonar: aboard && fishing && this.state.stats.finder ? this._sonar : null,
 			fight: this.fight,
 			casting: rod.state === 'windup',
 			power: rod.power,
 			bite: this.bite && this.bite.phase === 'take',
 			aiming: rod.equipped,
+			equipped: rod.equipped,
+			fishing,
 		} );
-		if ( this.minimap ) this.minimap.update( dt );
+		if ( this.minimap && Options.get( 'minimap' ) ) this.minimap.update( dt );
 		if ( this.guide ) this.guide.update( dt );
 
 	}
@@ -292,7 +312,7 @@ export class Game {
 
 			// by the water (boat deck, pier, the wet beach, wading): suggest the rod
 			const byWater = p.mode === 'deck' || ( p.mode === 'walk' && [ 'wood', 'wetsand', 'water' ].includes( p.surface ) );
-			return byWater ? { key: 'R', text: t( 'prompt.takeRod' ) } : null;
+			return byWater ? { key: 'R', text: t( 'prompt.takeRod' ) } : null; // R: the equipment wheel
 
 		}
 
