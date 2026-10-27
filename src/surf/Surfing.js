@@ -70,15 +70,20 @@ export const SURF_TUNING = {
 	// the board on the water: it floats (never under the surface), the water only pushes it up
 	freeboardProne: 0.0, // m from the water to the bottom of the board with you lying on it
 	freeboardStand: 0.01, // ... standing (planing: the board rides on top)
-	tiltRate: 14, // 1/s: how fast pitch / roll follow the water under nose, tail and rails
+	floatHz: 1.7, // the board's bob on the water under the rider's weight (stiffer = follows the water closer)
+	floatDamp: 0.9, // its damping (1 = critical: no bounce)
+	railWet: 0.03, // m: how deep a rail may dip before the water pushes the board up regardless
+	tiltRate: 7, // 1/s: how fast pitch / roll follow the water under nose, tail and rails (lying down: 70%)
 	// riding: you carve by putting the board on a rail (A / D lean), the turn comes from lean and speed
 	leanRate: 4, // 1/s: how fast you roll onto the rail
 	// first person only
 	eyeProne: 0.8, // m above the board lying on it (chest and head up; lower than this is queasy on a screen)
 	eyeStand: 1.75, // m above the board standing (a little above a real eye line, again for comfort)
-	bodyFollowProne: 0.9, // share of the board's pitch / roll the view takes lying down
-	bodyFollowStand: 0.7, // ... standing (the legs absorb the rest)
-	kneeBend: 0.012, // m of eye drop per m/s^2 of the board's vertical acceleration
+	bodyFollowProne: 0.75, // share of the board's pitch / roll the view takes lying down
+	bodyFollowStand: 0.45, // ... standing (the legs and the neck keep the head level)
+	headRate: 5, // 1/s: how quickly the head follows that
+	legHz: 1.6, // the eye's spring over the board (legs): slower soaks up more of the bobbing
+	legGive: 0.22, // m the knees can bend (and half that stretch) standing; lying down 40%
 	foamShake: 0.03, // rad of jolt in full whitewater (irregular)
 	fovPerSpeed: 1.2, // degrees of extra field of view per m/s over 3 m/s ...
 	fovMax: 9, // ... up to this
@@ -412,6 +417,8 @@ export class Surfing {
 		this.vy = 0;
 		this.air = 0;
 		this._surfY = undefined;
+		this._sv = 0;
+		this._headY = this._cp = this._cr = undefined;
 		this.lookYaw = 0;
 		this.lookPitch = - 0.12;
 		this.boardMesh.castShadow = true;
@@ -702,40 +709,65 @@ export class Surfing {
 		const water = H[ 0 ];
 		const airborne = this.air > 0;
 		// in the air the board keeps its attitude (a little drift), on the water it lies on the surface
-		const tilt = airborne ? 0.5 : T.tiltRate;
+		const tilt = airborne ? 0.5 : T.tiltRate * ( this.state === 'ride' ? 1 : 0.7 );
 		const pitch = Math.atan2( H[ 1 ] - H[ 2 ], 2 * h );
 		const roll = - Math.atan2( H[ 3 ] - H[ 4 ], 2 * w ) + ( this.state === 'ride' ? this.lean : 0 ) + this.wobble;
 		this.wobble *= Math.exp( - dt * 3 );
 		this.pitch += ( pitch - this.pitch ) * ( 1 - Math.exp( - dt * tilt ) );
 		this.roll += ( roll - this.roll ) * ( 1 - Math.exp( - dt * tilt ) );
-		// the lowest the centre can sit with the bottom of the board above the water at all five points
+		// Buoyancy: the board's footprint (2.3 m x 0.56 m) floats on the average water under it, pushed up
+		// like a stiff, well-damped spring (the rider's weight on the board's waterplane: about 1.7 Hz)
+		// that can only push, never pull: water dropping away faster than gravity leaves the board in the
+		// air. A hard floor keeps every point of the bottom above the water (a rail may be wet by at most
+		// `railWet`), so the board is never pushed under however fast the water rises. The spring is also
+		// what smooths the read-back noise in the swell heights out of the motion.
 		const sinP = Math.sin( this.pitch ), sinR = Math.sin( this.roll );
 		const bottom = sp.thickness * 0.5 + ( this.state === 'paddle' ? T.freeboardProne : T.freeboardStand );
-		let surface = Math.max( H[ 0 ], H[ 1 ] - h * sinP, H[ 2 ] + h * sinP, H[ 3 ] + w * sinR, H[ 4 ] - w * sinR ) + bottom;
+		let surface = ( 2 * H[ 0 ] + H[ 1 ] + H[ 2 ] + H[ 3 ] + H[ 4 ] ) / 6 + bottom;
+		let floor = Math.max( H[ 0 ], H[ 1 ] - h * sinP, H[ 2 ] + h * sinP, H[ 3 ] + w * sinR, H[ 4 ] - w * sinR ) + bottom - T.railWet;
 		if ( ! Number.isFinite( surface ) ) surface = water + bottom;
-		const sv = this._surfY === undefined || ! dt ? 0 : clamp( ( surface - this._surfY ) / dt, - 6, 6 ); // the water's vertical speed under the board
+		if ( ! Number.isFinite( floor ) ) floor = surface;
+		// the water's vertical speed under the board, smoothed (a frame-to-frame difference is all noise)
+		const sv = this._surfY === undefined || ! dt ? 0 : clamp( ( surface - this._surfY ) / dt, - 6, 6 );
 		this._surfY = surface;
-		if ( ! Number.isFinite( this.pos.y ) || ! Number.isFinite( this.vy ) ) {
+		this._sv = ( this._sv || 0 ) + ( sv - ( this._sv || 0 ) ) * ( 1 - Math.exp( - dt * 12 ) );
+		if ( ! Number.isFinite( this.pos.y ) || ! Number.isFinite( this.vy ) || ! Number.isFinite( this._sv ) ) {
 
 			this.pos.y = surface;
 			this.vy = 0;
+			this._sv = 0;
 
 		}
 
-		const vy0 = this.vy;
-		this.vy -= GRAV * dt;
-		this.pos.y += this.vy * dt;
-		if ( this.pos.y <= surface ) {
+		const n = dt > 0.02 ? 2 : 1, step = dt / n, om = T.floatHz * 2 * Math.PI, sag = GRAV / ( om * om );
+		let wet = false;
+		for ( let k = 0; k < n; k ++ ) {
 
-			// on the water: carried by it (and launched if it was rising faster than it is now)
-			this.pos.y = surface;
-			this.vy = Math.max( this.vy, sv );
+			// how deep the spring is pressed (at rest exactly the weight, `sag`, so the board sits at `surface`)
+			const depth = surface + sag - this.pos.y;
+			// the water only pushes: buoyancy + damping, never negative, against gravity
+			const a = ( depth > 0 ? Math.max( om * om * depth + 2 * T.floatDamp * om * ( this._sv - this.vy ), 0 ) : 0 ) - GRAV;
+			this.vy += a * step;
+			this.pos.y += this.vy * step;
+			wet = wet || depth > 0;
+
+		}
+
+		if ( this.pos.y < floor ) {
+
+			this.pos.y = floor;
+			this.vy = Math.max( this.vy, this._sv );
+			wet = true;
+
+		}
+
+		if ( wet ) {
+
 			if ( this.air > 0.25 && this.app.audio ) this.app.audio.splash( clamp( this.air, 0.2, 0.8 ), this.player.position );
 			this.air = 0;
 
 		} else this.air = ( this.air || 0 ) + dt;
 
-		this.heaveAcc = ( this.vy - vy0 ) / Math.max( dt, 1e-3 ); // what the legs feel (m/s^2)
 		// (a non-finite sample must never stick in the smoothed angles)
 		if ( ! Number.isFinite( this.pitch ) ) this.pitch = 0;
 		if ( ! Number.isFinite( this.roll ) ) this.roll = 0;
@@ -753,10 +785,10 @@ export class Surfing {
 	}
 
 	// First person only: lying on the board while paddling, standing on it while riding. Everything the
-	// view does comes from the board: it rides the board's heave fully and most of its pitch / roll (the
-	// body balances a little of it out), the legs give under the board's vertical acceleration (pressed
-	// down when the water lifts the board, light as it drops or flies), whitewater jostles it with
-	// irregular noise, and the field of view widens with speed on a wave. The mouse turns the head.
+	// view does comes from the board: every swell and drop comes through, the legs soak up the quick
+	// bobbing, the head keeps the horizon steadier than the board (part of its pitch / roll, smoothed),
+	// whitewater jostles it with irregular noise, and the field of view widens with speed on a wave. The
+	// mouse turns the head.
 	_camera( dt ) {
 
 		const p = this.player, cam = p.camera;
@@ -764,12 +796,30 @@ export class Surfing {
 		this.lookYaw = clamp( this.lookYaw - look.x * 0.0022, - 2.0, 2.0 );
 		this.lookPitch = clamp( this.lookPitch - look.y * 0.0022, - 1.3, 1.1 );
 		const standing = this.state === 'ride';
-		const board = _q.setFromEuler( _e.set( - this.pitch, this.heading, this.roll ) );
-		const yawOnly = _q2.setFromEuler( _e.set( 0, this.heading, 0 ) );
-		const body = _q3.slerpQuaternions( yawOnly, board, standing ? T.bodyFollowStand : T.bodyFollowProne );
-		// the legs: a smoothed response to the board's vertical acceleration
-		this._knee = ( this._knee || 0 ) + ( clamp( ( this.heaveAcc || 0 ) * T.kneeBend, - 0.16, 0.16 ) - ( this._knee || 0 ) ) * ( 1 - Math.exp( - dt * 10 ) );
-		const eye = _a.set( 0, ( standing ? T.eyeStand : T.eyeProne ) - this._knee, standing ? - 0.2 : 0.15 ).applyQuaternion( body ).add( this.pos );
+		// the head keeps the horizon steadier than the board: it takes part of the board's pitch / roll,
+		// smoothed (the inner ear and the neck), and the heading as it is
+		const follow = standing ? T.bodyFollowStand : T.bodyFollowProne, kh = 1 - Math.exp( - dt * T.headRate );
+		this._cp = Number.isFinite( this._cp ) ? this._cp + ( this.pitch * follow - this._cp ) * kh : this.pitch * follow;
+		this._cr = Number.isFinite( this._cr ) ? this._cr + ( this.roll * follow - this._cr ) * kh : this.roll * follow;
+		const body = _q3.setFromEuler( _e.set( - this._cp, this.heading, this._cr ) );
+		// the legs: the eye rides on a critically damped spring above the board, so the board's quick
+		// bobbing is soaked up by the knees (the eye drops as the water shoves the board up and floats as
+		// it falls away) while every swell and every drop down a face comes through in full
+		const eye = _a.set( 0, standing ? T.eyeStand : T.eyeProne, standing ? - 0.2 : 0.15 ).applyQuaternion( body ).add( this.pos );
+		const om = T.legHz * 2 * Math.PI;
+		if ( ! Number.isFinite( this._headY ) || ! Number.isFinite( this._headV ) ) {
+
+			this._headY = eye.y;
+			this._headV = 0;
+
+		}
+
+		this._headV += ( om * om * ( eye.y - this._headY ) - 2 * om * this._headV ) * dt;
+		this._headY += this._headV * dt;
+		const give = standing ? T.legGive : T.legGive * 0.4; // how far the knees (elbows) can bend / stretch
+		if ( this._headY < eye.y - give ) { this._headY = eye.y - give; this._headV = Math.max( this._headV, 0 ); }
+		if ( this._headY > eye.y + give * 0.5 ) { this._headY = eye.y + give * 0.5; this._headV = Math.min( this._headV, 0 ); }
+		eye.y = this._headY;
 		// whitewater: irregular jolts (value noise, no fixed rhythm)
 		const foam = this.s.foam || 0;
 		this._jolt = this._jolt || { t: 0, a: 0, b: 0, x0: 0, x1: 0, y0: 0, y1: 0 };

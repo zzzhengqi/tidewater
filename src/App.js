@@ -59,6 +59,7 @@ import { Player } from './player/Player.js';
 import { Game } from './game/Game.js';
 import { Equipment } from './core/Equipment.js';
 import { Surfing } from './surf/Surfing.js';
+import { Quality } from './core/Quality.js';
 import { pressed } from './core/Keymap.js';
 import { STAND } from './game/FishStand.js';
 import { CHANDLERY } from './game/Chandlery.js';
@@ -342,8 +343,16 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 		} );
 		this.post = new PostFX( renderer, { sceneRenderer: this.sceneRenderer, camera, underwater: this.underwater, clouds: this.clouds, sunDir: this.atmosphere.sunDir, haze: this.haze } );
 		G.exposure.value = this.settings.exposure;
-		if ( qs.has( 'scale' ) ) this.settings.renderScale = Number( qs.get( 'scale' ) ) || 1;
-		this.setRenderScale( this.settings.renderScale );
+		// graphics preset + adaptive resolution (saved; ?bench and ?scale keep fixed settings for measuring)
+		const fixed = qs.has( 'bench' ) || qs.has( 'scale' );
+		this.quality = new Quality( this, { adaptiveAllowed: ! fixed } );
+		if ( ! fixed ) this.quality.apply();
+		else {
+
+			if ( qs.has( 'scale' ) ) this.settings.renderScale = Number( qs.get( 'scale' ) ) || 1;
+			this.setRenderScale( this.settings.renderScale );
+
+		}
 
 		// ---------------------------------------------------------------- audio
 		// recorded field recordings (public/audio, credits in public/audio/CREDITS.md); ?noAudio turns it off
@@ -652,6 +661,7 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 	_frame( dt ) {
 
 		GPU.beginFrame();
+		this.quality.beginFrame();
 		FrameUniforms.fields.frameIndex.value = GPU.frame;
 		const s = this.settings;
 		this.updateFPS( dt );
@@ -750,8 +760,10 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 		if ( this.post.flare ) this.post.flare.kernel.dispatch( 1 );
 		this.post.render();
 		this.post.endFrame();
+		this.quality.endFrame();
 		GPU.submit();
 		this.profiler.update( dt );
+		this.quality.update( dt, typeof document === 'undefined' || document.visibilityState === 'visible' );
 
 		this.updateAudio( dt );
 		if ( this.ui ) this.ui.update( dt );

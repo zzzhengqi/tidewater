@@ -494,4 +494,17 @@ export default {
 	'settings.renderScaleTip': "内部渲染分辨率；时域放大会重建完整的输出分辨率。",
 	'settings.antiAliasing': "抗锯齿",
 	'settings.antiAliasingTip': "时域抗锯齿：每个像素在连续多帧中对这么多个子像素采样位置取平均（也能抚平抖动式淡入淡出和阴影噪点）。采样数越多，每帧开销不变，但需要多几帧才能稳定下来。",
+	'settings.graphicsPreset': "画质预设",
+	'settings.graphicsPresetTip': "低：降低内部分辨率，关闭阴影和水面反射。中：关闭水面反射。高：完整画面。极高：按屏幕真实像素密度渲染（高分屏上最清晰，GPU 负担最大）。",
+	'settings.qLow': "低",
+	'settings.qMedium': "中",
+	'settings.qHigh': "高",
+	'settings.qUltra': "极高",
+	'settings.qCustom': "自定义",
+	'settings.adaptiveRes': "自适应分辨率",
+	'settings.adaptiveResTip': "GPU 跟不上目标帧率时自动降低内部分辨率，有余量时再升回来（不会超过预设值）。",
+	'settings.targetFps': "目标帧率",
+	'settings.gpuPerFrame': "每帧 GPU 耗时",
+
+	'toast.slowHint': "运行较慢：可以在 设置 → 性能 中选择\"低\"画质预设，也可以在 玩法 中关闭冲浪。",
 };

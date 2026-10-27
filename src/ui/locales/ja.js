@@ -494,4 +494,17 @@ export default {
 	'settings.renderScaleTip': "内部解像度。時間的アップスケーラーが最終的な出力解像度を復元します。",
 	'settings.antiAliasing': "アンチエイリアス",
 	'settings.antiAliasingTip': "時間的アンチエイリアス：各ピクセルが連続するフレームでこの数のサブピクセル位置を平均します（ディザのフェードや影のノイズも滑らかにします）。サンプルを増やしてもフレームごとの負荷は変わりませんが、落ち着くまで数フレーム多くかかります。",
+	'settings.graphicsPreset': "グラフィック品質",
+	'settings.graphicsPresetTip': "低：内部解像度を下げ、影と水面反射をオフ。中：水面反射をオフ。高：本来の見た目。最高：画面本来のピクセル密度で描画（高 DPI 画面で最も鮮明、GPU 負荷が最大）。",
+	'settings.qLow': "低",
+	'settings.qMedium': "中",
+	'settings.qHigh': "高",
+	'settings.qUltra': "最高",
+	'settings.qCustom': "カスタム",
+	'settings.adaptiveRes': "解像度の自動調整",
+	'settings.adaptiveResTip': "GPU が目標フレームレートに追いつかないときは内部解像度を下げ、余裕があれば戻します（プリセットの値は超えません）。",
+	'settings.targetFps': "目標フレームレート",
+	'settings.gpuPerFrame': "フレームごとの GPU 時間",
+
+	'toast.slowHint': "動作が重いようです：設定 → パフォーマンス で「低」プリセットを試してください。サーフィンはゲームプレイでオフにできます。",
 };

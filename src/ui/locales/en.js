@@ -494,4 +494,17 @@ export default {
 	'settings.renderScaleTip': "Internal resolution; the temporal upscaler reconstructs the full output resolution.",
 	'settings.antiAliasing': "Anti-aliasing",
 	'settings.antiAliasingTip': "Temporal anti-aliasing: each pixel averages this many sub-pixel sample positions over successive frames (it also smooths dithered fades and shadow noise). More samples cost nothing per frame but take a few more frames to settle.",
+	'settings.graphicsPreset': "Graphics preset",
+	'settings.graphicsPresetTip': "Low: lower internal resolution, no shadows or water reflections. Medium: no water reflections. High: the full look. Ultra: draws at your screen's real pixel density (sharpest on high-DPI screens, the most GPU work).",
+	'settings.qLow': "Low",
+	'settings.qMedium': "Medium",
+	'settings.qHigh': "High",
+	'settings.qUltra': "Ultra",
+	'settings.qCustom': "Custom",
+	'settings.adaptiveRes': "Adaptive resolution",
+	'settings.adaptiveResTip': "Lowers the internal resolution when the GPU can't keep up with the target frame rate, and raises it again when there is room (never above the preset's).",
+	'settings.targetFps': "Target frame rate",
+	'settings.gpuPerFrame': "GPU per frame",
+
+	'toast.slowHint': "Running slowly: try the Low graphics preset (Settings → Performance). Surfing can also be switched off under Gameplay.",
 };

@@ -494,4 +494,17 @@ export default {
 	'settings.renderScaleTip': "내부 해상도입니다. 시간적 업스케일러가 전체 출력 해상도로 복원합니다.",
 	'settings.antiAliasing': "안티앨리어싱",
 	'settings.antiAliasingTip': "시간적 안티앨리어싱: 각 픽셀이 연속된 프레임에 걸쳐 이 개수만큼의 서브픽셀 샘플 위치를 평균합니다(디더링 페이드와 그림자 노이즈도 부드럽게 합니다). 샘플이 많아도 프레임당 비용은 같지만 안정되기까지 몇 프레임이 더 걸립니다.",
+	'settings.graphicsPreset': "그래픽 품질",
+	'settings.graphicsPresetTip': "낮음: 내부 해상도를 낮추고 그림자와 수면 반사를 끕니다. 중간: 수면 반사를 끕니다. 높음: 본래의 화면. 최상: 화면의 실제 픽셀 밀도로 그립니다(고해상도 화면에서 가장 선명하며 GPU 부담이 가장 큼).",
+	'settings.qLow': "낮음",
+	'settings.qMedium': "중간",
+	'settings.qHigh': "높음",
+	'settings.qUltra': "최상",
+	'settings.qCustom': "사용자 지정",
+	'settings.adaptiveRes': "적응형 해상도",
+	'settings.adaptiveResTip': "GPU가 목표 프레임 속도를 따라가지 못하면 내부 해상도를 낮추고, 여유가 생기면 다시 올립니다(프리셋 값을 넘지 않음).",
+	'settings.targetFps': "목표 프레임 속도",
+	'settings.gpuPerFrame': "프레임당 GPU 시간",
+
+	'toast.slowHint': "실행이 느립니다: 설정 → 성능에서 '낮음' 프리셋을 사용해 보세요. 서핑은 게임플레이에서 끌 수 있습니다.",
 };
