@@ -52,8 +52,8 @@ export class FlyCamera {
 		if ( inp.down( 'KeyS' ) ) move.sub( this._fwd );
 		if ( inp.down( 'KeyD' ) ) move.add( this._right );
 		if ( inp.down( 'KeyA' ) ) move.sub( this._right );
-		if ( inp.down( 'KeyE' ) || inp.down( 'Space' ) ) move.y += 1;
-		if ( inp.down( 'KeyQ' ) || inp.down( 'KeyC' ) ) move.y -= 1;
+		if ( inp.down( 'Space' ) ) move.y += 1; // up / down: the same keys as swimming (core/Keymap.js)
+		if ( inp.down( 'KeyC' ) ) move.y -= 1;
 		if ( move.lengthSq() > 0 ) move.normalize().multiplyScalar( speed );
 		this.velocity.lerp( move, 1 - Math.exp( - dt * 8 ) );
 		this.camera.position.addScaledVector( this.velocity, dt );

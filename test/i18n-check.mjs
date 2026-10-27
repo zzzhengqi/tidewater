@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { languages, locales, keyOf } from '../src/ui/i18n.js';
 import { FISH } from '../src/game/FishTable.js';
 import { UPGRADES } from '../src/game/Gear.js';
+import { Options } from '../src/core/Options.js';
+import { KEYMAP, SECTIONS } from '../src/core/Keymap.js';
 
 const root = fileURLToPath( new URL( '..', import.meta.url ) );
 const read = ( p ) => readFileSync( join( root, p ), 'utf8' );
@@ -95,7 +97,22 @@ for ( const p of [ 'src/game/FishStand.js', 'src/game/Chandlery.js' ] ) {
 
 need( 'vendor.joe.idle', 'FishStand.js' );
 for ( const d of [ 'n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw' ] ) need( 'dir.' + d, 'UI.js' );
-for ( const d of [ 'north', 'northEast', 'east', 'southEast', 'south', 'southWest', 'west', 'northWest' ] ) need( 'compass.' + d, 'Guide.js' );
+for ( const o of Options.list() ) for ( const k of [ o.label, o.tip ].filter( Boolean ) ) need( k, 'core/Options.js' );
+for ( const k of KEYMAP ) for ( const key of [ k.label, k.sub ].filter( Boolean ) ) need( key, 'core/Keymap.js' );
+for ( const [ , key ] of SECTIONS ) need( key, 'core/Keymap.js' );
+
+// any string literal shaped like a key of a known namespace ('equip.rod', 'wheel.busy', …) must exist
+const namespaces = new Set( enKeys.map( ( k ) => k.split( '.' )[ 0 ] ) );
+for ( const p of sources ) {
+
+	for ( const m of read( p ).replace( /^\s*\/\/.*$/gm, '' ).matchAll( /'([a-z]+(?:\.[A-Za-z0-9]+)+)'/g ) ) {
+
+		const [ ns ] = m[ 1 ].split( '.' );
+		if ( namespaces.has( ns ) && ! /\.(css|js|json|glb|png|jpg|html)$/.test( m[ 1 ] ) ) need( m[ 1 ], p );
+
+	}
+
+}
 const tips = /const TIPS = \[([^\]]*)\]/.exec( read( 'src/game/Guide.js' ) )?.[ 1 ] ?? '';
 for ( const m of tips.matchAll( /'(\w+)'/g ) ) need( 'tip.' + m[ 1 ], 'Guide.js' );
 

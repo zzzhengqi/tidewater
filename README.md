@@ -73,36 +73,47 @@ breach. It runs directly on WebGPU and WGSL with its own small rendering engine,
 
 ## Controls
 
+The full list is generated in game from `src/core/Keymap.js` (F1). New features don't get letter keys of
+their own: they go into the equipment wheel (R) or the settings panel (H).
+
 | Key | Action |
 |---|---|
-| W A S D | Move |
+| W A S D | Move, steer the boat |
 | Mouse | Look (click to capture the mouse, Esc to release) |
-| Shift | Sprint / boat boost |
-| Space | Jump / swim up |
-| C | Crouch / dive |
-| E | Interact: board the boat, take or leave the helm, step ashore, trade with the fish buyer or the chandlery |
+| Shift | Sprint / boat boost / fast free camera |
+| Space | Jump / swim up / climb / free camera up |
+| C | Crouch / dive / free camera down |
+| E | Interact: board the boat, take or leave the helm, step ashore, talk to the traders |
+| R | Equipment wheel: tap to open, R again for the next item, click or Enter to take it, Esc or a movement key to close |
+| Left mouse | Use what you hold (rod: hold to wind up, release to cast · strike · hold to reel) |
+| Right mouse | Rod: reel an empty line in |
+| I or Tab | Cooler / fish hold and the fish log (fishing on) |
 | V | Boat camera at the helm (1st / 3rd person) |
-| R | Take out / put away the fishing rod |
-| Left mouse | Hold to wind up, release to cast · strike when a fish takes the bait · hold to reel |
-| Right mouse | Reel an empty line in |
-| I or Tab | Cooler / fish hold and the fish log |
 | F | Free camera |
-| L | Flashlight |
 | T | Pause time |
+| L | Flashlight |
 | M | Mute |
 | H | Settings panel |
 | P | Photo mode |
 | F1 or ? | All controls |
+| Esc | Close a panel or the wheel, release the mouse |
 
-### Fishing
+### Gameplay options
 
-Walk the deck of the boat while it drifts, or fish from the pier and the beach. Cast, wait for the bobber
-to dip and strike when it's pulled under, then play the fish: keep the line tension in the green band,
-ease off when it runs. Different water holds different fish (the shallows, the pier, the reef, the bay and
-deep water offshore), and some bite best at dawn, dusk or night. Sell your catch to Joe at the fish stand
-on the beach by the pier, and spend it at Marta's chandlery by the boathouse: stronger line, a faster reel,
-a longer rod, a bigger fish hold, a larger fuel tank, a rebuilt engine, a fish finder and deck floodlights for
-night fishing. The boat burns diesel at the helm; fill up at the chandlery. Progress is saved in the browser.
+Settings (H) → Gameplay switches the optional parts on or off, saved in the browser: **Fishing** (the rod on
+the wheel, the traders, the cooler and fishing tips), **Minimap**, **Light HUD** (hides the frame-rate box,
+mode label and tip cards) and **Overview and tips**.
+
+### Fishing (optional)
+
+Walk the deck of the boat while it drifts, or fish from the pier and the beach: press R and pick the rod.
+Cast, wait for the bobber to dip and strike when it's pulled under, then play the fish: keep the line
+tension in the green band, ease off when it runs. Different water holds different fish (the shallows, the
+pier, the reef, the bay and deep water offshore), and some bite best at dawn, dusk or night. Sell your
+catch to Joe at the fish stand on the beach by the pier, and spend it at Marta's chandlery by the
+boathouse: stronger line, a faster reel, a longer rod, a bigger fish hold, a larger fuel tank, a rebuilt
+engine, a fish finder and deck floodlights for night fishing. With fishing on the boat burns diesel at the
+helm; fill up at the chandlery. Progress is saved in the browser.
 
 The settings panel (H) exposes the sea state, time of day, sun azimuth, clouds, haze, post-processing and
 more.

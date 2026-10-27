@@ -57,6 +57,8 @@ import { AirHaze } from './post/AirHaze.js';
 import { FlyCamera } from './player/FlyCamera.js';
 import { Player } from './player/Player.js';
 import { Game } from './game/Game.js';
+import { Equipment } from './core/Equipment.js';
+import { pressed } from './core/Keymap.js';
 import { STAND } from './game/FishStand.js';
 import { CHANDLERY } from './game/Chandlery.js';
 import { BoatController } from './player/BoatController.js';
@@ -80,6 +82,8 @@ export class App {
 			renderScale: 1, // internal resolution (the temporal upscaler reconstructs the output), Performance tab
 		};
 		this.qs = new URLSearchParams( location.search );
+		// what the player holds: the R wheel lays out this registry ('hands' is built in; the game adds the rod)
+		this.equipment = new Equipment();
 
 	}
 
@@ -606,16 +610,16 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 		if ( s.timeSpeed !== 0 ) s.timeOfDay = ( s.timeOfDay + dt * s.timeSpeed + 24 ) % 24;
 
 		// ---- player / boat (boat physics first so the cameras follow this frame's pose)
-		if ( this.input.hit( 'KeyF' ) ) this.setFreeCam( ! this.freeCam );
-		if ( this.input.hit( 'KeyT' ) ) this.toggleTime();
-		if ( this.input.hit( 'KeyL' ) ) {
+		if ( pressed( this.input, 'freeCamera' ) ) this.setFreeCam( ! this.freeCam );
+		if ( pressed( this.input, 'time' ) ) this.toggleTime();
+		if ( pressed( this.input, 'flashlight' ) ) {
 
 			const on = this.localLights.toggleFlashlight();
 			if ( this.ui ) this.ui.ui.toast( on ? 'Flashlight on' : 'Flashlight off' );
 
 		}
 
-		if ( this.input.hit( 'KeyM' ) && this.audio ) {
+		if ( pressed( this.input, 'mute' ) && this.audio ) {
 
 			this.audio.setMuted( ! this.audio.muted );
 			if ( this.ui ) this.ui.ui.toast( this.audio.muted ? 'Sound off' : 'Sound on' );

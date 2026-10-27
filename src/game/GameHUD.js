@@ -18,6 +18,8 @@ const CSS = /* css */`
 .tw-root[data-panel='open'] .gm-purse { right: calc(var(--tw-panel-w) + 2 * var(--tw-3)); }
 .tw-root.is-photo .gm-panel { display: none; }
 .gm-purse.is-bump { animation: gm-bump 420ms var(--tw-ease); }
+.gm-purse.is-off { opacity: 0; visibility: hidden; }
+.gm-purse.is-boat-only .gm-money, .gm-purse.is-boat-only .gm-cooler { display: none; }
 @keyframes gm-bump { 30% { transform: scale(1.08); } }
 .gm-money { font-family: var(--tw-mono); color: var(--tw-sun); font-weight: 600; }
 .gm-cooler { display: flex; align-items: center; gap: var(--tw-2); color: var(--tw-ink-2); font-size: var(--tw-fs-md); }
@@ -266,7 +268,13 @@ export class GameHUD {
 	}
 
 	// per frame
-	update( { fight, casting, power, bite, aiming, fuel = null, sonar = null } ) {
+	update( { fight, casting, power, bite, aiming, fuel = null, sonar = null, equipped = true, fishing = true } ) {
+
+		// money and the cooler only with the rod out (or a fishing panel open); the boat's fuel and fish
+		// finder while aboard; nothing at all with fishing switched off
+		const fishingUI = equipped || this.invOpen || this.standOpen || this.catchOpen;
+		this.purse.classList.toggle( 'is-off', ! fishing || ! ( fishingUI || fuel || sonar ) );
+		this.purse.classList.toggle( 'is-boat-only', ! fishingUI );
 
 		// boat instruments in the purse: fuel while aboard, the fish finder when fitted
 		this.fuelEl.classList.toggle( 'is-on', !! fuel );

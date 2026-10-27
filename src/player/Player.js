@@ -310,7 +310,7 @@ export class Player {
 		if ( inp.down( 'KeyD' ) ) wish.add( _right );
 		if ( inp.down( 'KeyA' ) ) wish.sub( _right );
 		if ( inp.down( 'Space' ) ) wish.y += 1;
-		if ( inp.down( 'KeyC' ) || inp.down( 'ControlLeft' ) ) wish.y -= 1;
+		if ( inp.down( 'KeyC' ) ) wish.y -= 1;
 		if ( wish.lengthSq() > 0 ) wish.normalize();
 
 		const atSurface = this.floating && p.y > surfaceY - 0.45;
