@@ -1,5 +1,5 @@
 import { Group, Mesh, Vector3, Euler, Quaternion } from '../engine/index.js';
-import { prepare, mergePrepared, sphere, cylinder, roundedBox, mat4 } from '../world/boat/GeoKit.js';
+import { prepare, mergePrepared, sphere, roundedBox, mat4 } from '../world/boat/GeoKit.js';
 import { createPropMaterial, PAT } from '../game/GameMaterials.js';
 import { ShoreSampler } from '../ocean/ShoreSampler.js';
 import { SPRAY } from '../fx/Spray.js';
@@ -63,7 +63,21 @@ export const SURF_TUNING = {
 	fadeHeight: 0.12, // m: the wave is gone below this height
 	shallowDepth: 0.45, // m of water: the ride ends, you step off (sand)
 	rockDepth: 0.6, // m of water over reef / rock: hit it, wiped out
-	// camera, board
+	// the board on the water
+	heaveK: 110, // 1/s^2: spring of the board to the water height (higher: stiffer, follows small chop)
+	heaveC: 14, // 1/s: its damping (~0.67 of critical: a little overshoot over a crest)
+	tiltRate: 12, // 1/s: how fast pitch / roll follow the water under nose, tail and rails
+	// first person (V switches to the chase camera)
+	eyeProne: 0.32, // m above the board lying on it
+	eyeStand: 1.5, // m above the board standing (knees bent)
+	bodyFollowProne: 0.85, // share of the board's pitch / roll the view takes lying down
+	bodyFollowStand: 0.55, // ... standing (the legs absorb the rest)
+	kneeBend: 0.012, // m of eye drop per m/s^2 of heave acceleration
+	speedShake: 0.0022, // rad of shake per m/s over 3 m/s
+	foamShake: 0.02, // rad of shake in full whitewater
+	fovPerSpeed: 1.2, // degrees of extra field of view per m/s over 3 m/s ...
+	fovMax: 9, // ... up to this
+	// chase camera
 	camDist: 5.4,
 	camHeight: 0.32, // rad above the board
 	camLag: 5, // 1/s
@@ -85,7 +99,10 @@ const smoothstep = ( a, b, x ) => {
 
 const _e = new Euler( 0, 0, 0, 'YXZ' );
 const _a = new Vector3(), _b = new Vector3(), _c = new Vector3();
-const _q = new Quaternion();
+const _q = new Quaternion(), _q2 = new Quaternion(), _q3 = new Quaternion(), _q4 = new Quaternion();
+const _yAxis = new Vector3( 0, 1, 0 );
+// the board's water points: ( along the board, across ) in units of 0.42 length / 0.45 width
+const WATER_POINTS = [ [ 0, 0 ], [ 1, 0 ], [ - 1, 0 ], [ 0, 1 ], [ 0, - 1 ] ];
 
 function boardGeometry( spec ) {
 
@@ -100,50 +117,6 @@ function boardGeometry( spec ) {
 	parts.push( prepare( roundedBox( W * 0.62, 0.006, L * 0.2, 0.003, 1 ), { color: 0x222628, rough: 0.9, pattern: PAT.rubber, matrix: mat4( 0, H / 2 - 0.004, - L * 0.36 ) } ) );
 	// fin
 	parts.push( prepare( roundedBox( 0.012, 0.13, 0.12, 0.004, 1 ), { color: C.fin, rough: 0.3, matrix: mat4( 0, - H / 2 - 0.06, - L * 0.42, - 0.25, 0, 0 ) } ) );
-	return mergePrepared( parts );
-
-}
-
-// a simple rider (local frame of the board: +Z the nose, +Y up). pose 'prone' | 'stand'
-function riderGeometry( pose, spec ) {
-
-	const skin = { color: 0xc58b62, rough: 0.6, pattern: PAT.skin };
-	const vest = { color: 0x183447, rough: 0.7, pattern: PAT.cloth };
-	const shorts = { color: 0xd9733a, rough: 0.75, pattern: PAT.cloth };
-	const parts = [];
-	const add = ( geo, o, m ) => parts.push( prepare( geo, { ...o, matrix: m } ) );
-	const top = spec.thickness / 2;
-	if ( pose === 'prone' ) {
-
-		const y = top + 0.12;
-		add( cylinder( 0.16, 0.14, 0.62, 12 ), vest, mat4( 0, y, 0.12, Math.PI / 2, 0, 0 ) );
-		add( sphere( 0.11, 14, 10 ), skin, mat4( 0, y + 0.1, 0.55 ) );
-		add( cylinder( 0.13, 0.12, 0.28, 10 ), shorts, mat4( 0, y - 0.01, - 0.3, Math.PI / 2, 0, 0 ) );
-		for ( const s of [ - 1, 1 ] ) {
-
-			add( cylinder( 0.065, 0.05, 0.85, 8 ), skin, mat4( s * 0.1, y - 0.03, - 0.85, Math.PI / 2, 0, 0 ) ); // legs
-			add( cylinder( 0.05, 0.04, 0.62, 8 ), skin, mat4( s * 0.3, y - 0.1, 0.3, Math.PI / 2 + 0.5, 0, s * 0.5 ) ); // arms paddling
-
-		}
-
-	} else {
-
-		// side-on stance, knees bent, arms out for balance (facing +X: the rider's chest to one rail)
-		const y = top;
-		for ( const [ z, rz ] of [ [ 0.32, 0.25 ], [ - 0.38, - 0.25 ] ] ) {
-
-			add( cylinder( 0.07, 0.06, 0.5, 8 ), skin, mat4( 0, y + 0.26, z * 0.8, rz, 0, 0 ) ); // shins
-			add( cylinder( 0.085, 0.07, 0.45, 8 ), shorts, mat4( 0, y + 0.66, z * 0.5, - rz * 1.2, 0, 0 ) ); // thighs
-
-		}
-
-		add( cylinder( 0.15, 0.16, 0.6, 12 ), vest, mat4( 0.04, y + 1.12, 0, 0, 0, - 0.2 ) );
-		add( cylinder( 0.15, 0.14, 0.22, 10 ), shorts, mat4( 0, y + 0.82, 0 ) );
-		add( sphere( 0.11, 14, 10 ), skin, mat4( 0.1, y + 1.55, 0.05 ) );
-		for ( const s of [ - 1, 1 ] ) add( cylinder( 0.05, 0.04, 0.66, 8 ), skin, mat4( 0.05, y + 1.28, s * 0.42, s * 1.15, 0, 0 ) );
-
-	}
-
 	return mergePrepared( parts );
 
 }
@@ -180,22 +153,29 @@ export class Surfing {
 		this._sn = {};
 		this._st = {};
 		this._tmp = {};
+		this._tmp2 = {};
+		this._pt = { x: 0, z: 0 };
 		this.stats = { samples: 0, ms: 0 };
+		// the swell under the board (see _readWater): five query slots, one result per point + its rate
+		this.slot = app.query.allocate( 'surfboard', 5 );
+		this.water = { r: new Float32Array( 5 ), w: new Float32Array( 5 ), t: 0, age: 0, valid: false };
+		this.h = new Float32Array( 5 ); // water height at the board points this frame
+		this.swellGrad = { x: 0, z: 0 };
+		this.vy = 0; // heave velocity (the board is a spring on the water, not glued to it)
+		// view: 'first' (standing / lying on the board) or 'chase' (behind the board); V switches
+		this.view = 'first';
+		this.lookYaw = 0;
+		this.lookPitch = - 0.12;
+		this._fov = null; // the camera's own field of view while a ride widens it
 
-		// meshes: the board, the rider prone / standing (children of the board)
+		// the board (first person: no body of your own for now)
 		const mat = createPropMaterial( 'surfboard' );
 		this.group = new Group();
 		this.group.name = 'Surfboard';
 		this.boardMesh = new Mesh( boardGeometry( this.spec ), mat );
-		this.prone = new Mesh( riderGeometry( 'prone', this.spec ), mat );
-		this.stand = new Mesh( riderGeometry( 'stand', this.spec ), mat );
-		for ( const m of [ this.boardMesh, this.prone, this.stand ] ) {
-
-			m.frustumCulled = false;
-			m.castShadow = true;
-			this.group.add( m );
-
-		}
+		this.boardMesh.frustumCulled = false;
+		this.boardMesh.castShadow = true;
+		this.group.add( this.boardMesh );
 
 		this.group.visible = false;
 		app.scene.add( this.group );
@@ -229,7 +209,6 @@ export class Surfing {
 
 		this.state = 'carry';
 		this.group.visible = true;
-		this.prone.visible = this.stand.visible = false;
 		this.boardMesh.castShadow = false; // (under the arm, right by the camera: no shadow until on the water)
 
 	}
@@ -264,20 +243,103 @@ export class Surfing {
 
 	}
 
-	// the slow rest of the water (FFT chop, wake) under the player: read-back minus the CPU shore waves
-	// at the read-back's own point and time
-	_residual() {
+	// ---- the open-sea swell (FFT) under the board, from the GPU water query: the same technique as the
+	// boat (player/BoatController.js readQueries): five points (centre, nose, tail, both rails) are queried
+	// where the board will be when the result comes back; each result minus the CPU shore waves at that
+	// point and time is the swell there, and its rate of change extrapolates it over the 1-3 frames until
+	// the next result. The breaking shore waves stay on the CPU (no latency).
+	_boardPoint( i, out ) {
 
-		const q = this.app.query, p = this.player;
+		const fx = Math.sin( this.heading ), fz = Math.cos( this.heading );
+		const h = this.spec.length * 0.42, w = this.spec.width * 0.45;
+		const f = WATER_POINTS[ i ];
+		out.x = this.pos.x + fx * f[ 0 ] * h - fz * f[ 1 ] * w;
+		out.z = this.pos.z + fz * f[ 0 ] * h + fx * f[ 1 ] * w;
+		return out;
+
+	}
+
+	_queueWater() {
+
+		const q = this.app.query, lead = q.latency, P = this._pt;
+		for ( let i = 0; i < 5; i ++ ) {
+
+			this._boardPoint( i, P );
+			q.setPoint( this.slot + i, P.x + this.vel.x * lead, P.z + this.vel.z * lead );
+
+		}
+
+	}
+
+	_readWater( dt ) {
+
+		const q = this.app.query, W = this.water;
+		W.age = Math.min( W.age + dt, 0.15 );
 		if ( ! q.cpuValid || q.version === this._rv ) return;
 		this._rv = q.version;
-		const k = p.slot * 4;
-		const gpu = q.cpu[ k ];
-		if ( ! Number.isFinite( gpu ) ) return;
+		const t = q.resultTime, dtR = t - W.t;
+		const pts = q.resultInputs, c = q.cpu, k0 = this.slot * 4;
 		const t0 = performance.now();
-		const s = this.sampler.sample( q.resultInputs[ k ], q.resultInputs[ k + 1 ], this._tmp, q.resultTime );
+		// CPU shore waves at the queried centre, nose and tail (the rails: the centre plus its slope)
+		const sc = this.sampler.sample( pts[ k0 ], pts[ k0 + 1 ], this._tmp, t );
+		const shore = [ sc.h, 0, 0, 0, 0 ];
+		for ( const i of [ 1, 2 ] ) shore[ i ] = this.sampler.sample( pts[ k0 + i * 4 ], pts[ k0 + i * 4 + 1 ], this._tmp2, t ).h;
+		const sl = Number.isFinite( sc.slope ) ? clamp( sc.slope, - 1, 1 ) : 0;
+		for ( const i of [ 3, 4 ] ) shore[ i ] = sc.h + sl * ( ( pts[ k0 + i * 4 ] - pts[ k0 ] ) * sc.dirX + ( pts[ k0 + i * 4 + 1 ] - pts[ k0 + 1 ] ) * sc.dirZ );
 		this.stats.ms += performance.now() - t0;
-		this.residual += ( clamp( gpu - s.h, - 1.5, 1.5 ) - this.residual ) * 0.35;
+		for ( let i = 0; i < 5; i ++ ) {
+
+			const gpu = c[ k0 + i * 4 ];
+			if ( ! Number.isFinite( gpu ) || ! Number.isFinite( shore[ i ] ) ) continue;
+			const r = clamp( gpu - shore[ i ], - 4, 4 );
+			const rate = W.valid && dtR > 1e-4 ? clamp( ( r - W.r[ i ] ) / dtR, - 4, 4 ) : 0;
+			W.w[ i ] += ( rate - W.w[ i ] ) * 0.5;
+			W.r[ i ] = r;
+
+		}
+
+		W.t = t;
+		W.age = 0;
+		W.valid = true;
+
+	}
+
+	// the swell at board point i now (extrapolated from the last result)
+	_swell( i ) {
+
+		const W = this.water;
+		return W.valid ? W.r[ i ] + W.w[ i ] * W.age : 0;
+
+	}
+
+	// everything the board needs about the water this frame: the CPU shore waves at the centre (with the
+	// wave state), nose and tail, plus the swell at all five points. Sets this.h (heights), this.swellGrad
+	// (the swell's slope along / across the board) and this.residual (the swell at the centre).
+	_sampleBoard() {
+
+		const s = this._sample( this.pos.x, this.pos.z, this.s );
+		const P = this._pt;
+		this._boardPoint( 1, P );
+		const n = this._sample( P.x, P.z, this._sn );
+		this._boardPoint( 2, P );
+		const tl = this._sample( P.x, P.z, this._st );
+		const h = this.spec.length * 0.42, w = this.spec.width * 0.45;
+		const fx = Math.sin( this.heading ), fz = Math.cos( this.heading );
+		const across = ( - fz * s.dirX + fx * s.dirZ ) * s.sl * w; // shore height change from the centre to a rail
+		const H = this.h;
+		H[ 0 ] = s.h + this._swell( 0 );
+		H[ 1 ] = n.h + this._swell( 1 );
+		H[ 2 ] = tl.h + this._swell( 2 );
+		H[ 3 ] = s.h + across + this._swell( 3 );
+		H[ 4 ] = s.h - across + this._swell( 4 );
+		for ( let i = 0; i < 5; i ++ ) if ( ! Number.isFinite( H[ i ] ) ) H[ i ] = Number.isFinite( this.player.waterH ) ? this.player.waterH : 0;
+		this.residual = this._swell( 0 );
+		// the swell's slope: the board slides down a swell's face like down a breaking wave's
+		const gF = clamp( ( this._swell( 1 ) - this._swell( 2 ) ) / ( 2 * h ), - 0.6, 0.6 );
+		const gS = clamp( ( this._swell( 3 ) - this._swell( 4 ) ) / ( 2 * w ), - 0.6, 0.6 );
+		this.swellGrad.x = fx * gF - fz * gS;
+		this.swellGrad.z = fz * gF + fx * gS;
+		return s;
 
 	}
 
@@ -290,9 +352,22 @@ export class Surfing {
 		this.stats.ms = 0;
 		const p = this.player;
 		if ( this.state === 'off' ) return;
-		if ( this.state !== 'carry' || p.mode !== 'walk' ) p.query.setPoint( p.slot, this.pos.x || p.position.x, this.pos.z || p.position.z );
-		this._residual();
+		if ( this.state !== 'carry' ) {
+
+			this._readWater( dt );
+			this._queueWater();
+
+		}
+
 		this._cooldown = Math.max( 0, this._cooldown - dt );
+		// V: first person on the board / chase camera behind it
+		if ( this.active && ! freeCam && this.input.hit( 'KeyV' ) ) {
+
+			this.view = this.view === 'first' ? 'chase' : 'first';
+			this.camInit = false;
+			this._toast( this.view === 'first' ? 'surf.viewFirst' : 'surf.viewChase', 1400 );
+
+		}
 
 		switch ( this.state ) {
 
@@ -307,8 +382,9 @@ export class Surfing {
 
 			this._applyPose( dt );
 			if ( ! freeCam ) this._camera( dt );
+			else this._restoreFov();
 
-		}
+		} else this._restoreFov();
 
 		this._hud( dt );
 		this.stats.samples = this.sampler.count;
@@ -330,7 +406,6 @@ export class Surfing {
 		const fx = - Math.sin( p.yaw ), fz = - Math.cos( p.yaw );
 		this.group.position.set( p.position.x - fz * 0.42 + fx * 0.1, p.position.y + 1.02, p.position.z + fx * 0.42 + fz * 0.1 );
 		this.group.quaternion.setFromEuler( _e.set( - 0.15, p.yaw + Math.PI, 1.35 ) );
-		this.prone.visible = this.stand.visible = false;
 
 	}
 
@@ -343,14 +418,16 @@ export class Surfing {
 		this.pos.set( p.position.x, p.waterH, p.position.z );
 		this.vel.set( p.velocity.x, 0, p.velocity.z ).multiplyScalar( 0.5 );
 		this.pitch = this.roll = this.lean = 0;
+		this.vy = 0;
 		this.camInit = false;
 		this.camYawOff = 0;
-		this.prone.visible = true;
-		this.stand.visible = false;
+		this.lookYaw = 0;
+		this.lookPitch = - 0.12;
 		this.boardMesh.castShadow = true;
 		// the water under the board before the first pose: _applyPose runs this same frame, and without a
 		// sample the height would be undefined (NaN in the board, the camera and the player: a black view)
-		this._sample( this.pos.x, this.pos.z, this.s );
+		this._sampleBoard();
+		this.pos.y = this.h[ 0 ];
 
 	}
 
@@ -358,7 +435,7 @@ export class Surfing {
 	_paddle( dt, freeCam ) {
 
 		const p = this.player, inp = this.input, sp = this.spec;
-		const s = this._sample( this.pos.x, this.pos.z, this.s );
+		const s = this._sampleBoard();
 		const on = ! freeCam;
 		const turn = on ? ( inp.down( 'KeyA' ) ? 1 : 0 ) - ( inp.down( 'KeyD' ) ? 1 : 0 ) : 0;
 		const fwd = on && inp.down( 'KeyW' ), back = on && inp.down( 'KeyS' );
@@ -372,8 +449,8 @@ export class Surfing {
 		vs *= Math.exp( - dt * T.sideDrag );
 		this.vel.set( fx * vf + rx * vs, 0, fz * vf + rz * vs );
 		// the water: down the surface slope (a wave lifting the tail pushes you shoreward), whitewater shoves
-		this.vel.x -= GRAV * s.gx * T.paddleSlopeGravity * dt;
-		this.vel.z -= GRAV * s.gz * T.paddleSlopeGravity * dt;
+		this.vel.x -= GRAV * ( s.gx + this.swellGrad.x ) * T.paddleSlopeGravity * dt;
+		this.vel.z -= GRAV * ( s.gz + this.swellGrad.z ) * T.paddleSlopeGravity * dt;
 		if ( s.foam > 0.3 && s.b > 1 ) {
 
 			this.vel.x += s.dirX * T.whitewaterPush * s.foam * dt;
@@ -449,8 +526,6 @@ export class Surfing {
 			this.ride.t = this.ride.dist = 0;
 			this.ride.shownT = 0;
 			this._whiteT = this._fadeT = 0;
-			this.prone.visible = false;
-			this.stand.visible = true;
 			this._toast( 'surf.caught', 1600 );
 			if ( this.app.audio ) this.app.audio.splash( 0.3, this.player.position );
 
@@ -462,12 +537,12 @@ export class Surfing {
 	_ride( dt, freeCam ) {
 
 		const p = this.player, inp = this.input, sp = this.spec;
-		const s = this._sample( this.pos.x, this.pos.z, this.s );
+		const s = this._sampleBoard();
 		const on = ! freeCam;
 		const face = smoothstep( 0.015, 0.2, - s.sl ) * s.env;
 		// down the face, and the face carrying you toward its own speed
-		this.vel.x -= GRAV * s.gx * T.rideGravity * dt;
-		this.vel.z -= GRAV * s.gz * T.rideGravity * dt;
+		this.vel.x -= GRAV * ( s.gx + this.swellGrad.x ) * T.rideGravity * dt;
+		this.vel.z -= GRAV * ( s.gz + this.swellGrad.z ) * T.rideGravity * dt;
 		// the face pulls you toward its speed, adjusted by where you are on it: too far ahead of the crest a
 		// little slower (the crest catches up), at the sweet spot just ahead of the crest at the wave's speed
 		const along = this.vel.x * s.dirX + this.vel.z * s.dirZ;
@@ -547,7 +622,6 @@ export class Surfing {
 		this._toSwim( 1 );
 		this.state = 'loose';
 		this._cooldown = T.remountDelay;
-		this.prone.visible = this.stand.visible = false;
 		const rx = - Math.cos( this.heading ), rz = Math.sin( this.heading );
 		this.pos.x += rx * 1.2;
 		this.pos.z += rz * 1.2;
@@ -582,7 +656,6 @@ export class Surfing {
 		p.pitch = - 0.05;
 		p._camY = null;
 		this.state = 'carry';
-		this.prone.visible = this.stand.visible = false;
 
 	}
 
@@ -617,7 +690,7 @@ export class Surfing {
 
 		}
 
-		this.pos.y = s.h + this.residual + this.spec.thickness * 0.3;
+		this.pos.y = s.h + this._swell( 0 ) + this.spec.thickness * 0.3;
 		this.pitch = Math.atan( s.sl * Math.cos( this.heading - Math.atan2( s.dirX, s.dirZ ) ) );
 		this.group.position.copy( this.pos );
 		this.group.quaternion.setFromEuler( _e.set( - this.pitch, this.heading, 0 ) );
@@ -625,24 +698,32 @@ export class Surfing {
 
 	}
 
-	// ---- the board on the water: height from the centre, pitch from the nose and tail, roll from the slope
+	// ---- the board on the water: heave as a damped spring to the water at the centre, pitch from the nose
+	// and tail heights, roll from the two rails (all including the swell: _sampleBoard)
 	_applyPose( dt ) {
 
-		const sp = this.spec, s = this.s;
-		const fx = Math.sin( this.heading ), fz = Math.cos( this.heading );
-		const h = sp.length * 0.42;
-		const n = this._sample( this.pos.x + fx * h, this.pos.z + fz * h, this._sn );
-		const tl = this._sample( this.pos.x - fx * h, this.pos.z - fz * h, this._st );
-		let water = s.h + this.residual;
-		if ( ! Number.isFinite( water ) ) water = Number.isFinite( this.player.waterH ) ? this.player.waterH : 0;
+		const sp = this.spec, H = this.h;
+		const h = sp.length * 0.42, w = sp.width * 0.45;
+		const water = H[ 0 ];
 		const float = this.state === 'paddle' ? sp.thickness * ( sp.buoyancy - 0.5 ) - 0.02 : sp.thickness * 0.1;
-		this.pos.y = this.pos.y ? this.pos.y + ( water + float - this.pos.y ) * ( 1 - Math.exp( - dt * 14 ) ) : water + float;
-		const pitch = Math.atan2( n.h - tl.h, 2 * h );
-		const rollSlope = - ( s.gx * - fz + s.gz * fx ); // slope across the board
+		const target = water + float;
+		if ( ! Number.isFinite( this.pos.y ) || ! Number.isFinite( this.vy ) ) {
+
+			this.pos.y = target;
+			this.vy = 0;
+
+		}
+
+		const acc = T.heaveK * ( target - this.pos.y ) - T.heaveC * this.vy;
+		this.vy += acc * dt;
+		this.pos.y = clamp( this.pos.y + this.vy * dt, target - 0.35, target + 0.45 ); // (never through the water / off a crest)
+		this.heaveAcc = acc;
+		const pitch = Math.atan2( H[ 1 ] - H[ 2 ], 2 * h );
+		const roll = - Math.atan2( H[ 3 ] - H[ 4 ], 2 * w );
 		this.wobble *= Math.exp( - dt * 2.5 );
 		const tt = performance.now() / 1000;
-		this.pitch += ( pitch + Math.sin( tt * 7 ) * this.wobble * 0.25 - this.pitch ) * ( 1 - Math.exp( - dt * 10 ) );
-		this.roll += ( Math.atan( rollSlope ) + ( this.state === 'ride' ? this.lean : 0 ) + Math.sin( tt * 9 ) * this.wobble * 0.35 - this.roll ) * ( 1 - Math.exp( - dt * 8 ) );
+		this.pitch += ( pitch + Math.sin( tt * 7 ) * this.wobble * 0.25 - this.pitch ) * ( 1 - Math.exp( - dt * T.tiltRate ) );
+		this.roll += ( roll + ( this.state === 'ride' ? this.lean : 0 ) + Math.sin( tt * 9 ) * this.wobble * 0.35 - this.roll ) * ( 1 - Math.exp( - dt * T.tiltRate ) );
 		// (a non-finite sample must never stick in the smoothed angles)
 		if ( ! Number.isFinite( this.pitch ) ) this.pitch = 0;
 		if ( ! Number.isFinite( this.roll ) ) this.roll = 0;
@@ -654,15 +735,74 @@ export class Surfing {
 		const p = this.player;
 		p.position.set( this.pos.x, water - 0.2, this.pos.z );
 		p.waterH = p.waterMean = water;
-		p.yaw = this.heading + Math.PI;
+		p.yaw = this.heading + Math.PI + ( this.view === 'first' ? this.lookYaw : 0 );
+		p.pitch = this.view === 'first' ? this.lookPitch : - 0.1;
 
 	}
 
-	// smooth third-person chase camera (mouse orbits around it)
 	_camera( dt ) {
 
-		const p = this.player, cam = p.camera;
 		const look = this.input.consumeLook();
+		if ( this.view === 'chase' ) this._chaseCamera( dt, look );
+		else this._firstPerson( dt, look );
+
+	}
+
+	// First person: lying on the board while paddling, standing on it while riding. The eye rides the
+	// board's heave fully and part of its pitch / roll (the body balances the rest); the mouse turns the
+	// head. Feedback: the heave acceleration bends the knees (the eye dips as the board is lifted, rises
+	// as it drops), speed and whitewater shake the view, the field of view widens with speed.
+	_firstPerson( dt, look ) {
+
+		const p = this.player, cam = p.camera;
+		this.lookYaw = clamp( this.lookYaw - look.x * 0.0022, - 2.0, 2.0 );
+		this.lookPitch = clamp( this.lookPitch - look.y * 0.0022, - 1.3, 1.1 );
+		const standing = this.state === 'ride';
+		const board = _q.setFromEuler( _e.set( - this.pitch, this.heading, this.roll ) );
+		const yawOnly = _q2.setFromEuler( _e.set( 0, this.heading, 0 ) );
+		const body = _q3.slerpQuaternions( yawOnly, board, standing ? T.bodyFollowStand : T.bodyFollowProne );
+		const eye = _a.set( 0, standing ? T.eyeStand : T.eyeProne, standing ? - 0.2 : 0.15 ).applyQuaternion( body ).add( this.pos );
+		eye.y -= clamp( ( this.heaveAcc || 0 ) * T.kneeBend, - 0.14, 0.14 );
+		const speed = Math.hypot( this.vel.x, this.vel.z );
+		const shake = ( standing ? Math.max( 0, speed - 3 ) * T.speedShake : 0 ) + ( this.s.foam || 0 ) * T.foamShake + this.wobble * 0.02;
+		const tt = performance.now() / 1000;
+		const sy = ( Math.sin( tt * 23.1 ) + Math.sin( tt * 37.7 ) * 0.5 ) * shake, sp = ( Math.sin( tt * 29.3 ) + Math.sin( tt * 41.9 ) * 0.5 ) * shake;
+		cam.position.copy( eye );
+		// camera looks down its -Z: turn the body frame (+Z forward) around, then the head
+		cam.quaternion.copy( body ).multiply( _q2.setFromAxisAngle( _yAxis, Math.PI ) ).multiply( _q4.setFromEuler( _e.set( this.lookPitch + sp, this.lookYaw + sy, 0 ) ) );
+		if ( cam.fov !== undefined ) {
+
+			if ( this._fov === null ) this._fov = cam.fov;
+			const want = this._fov + ( standing ? clamp( ( speed - 3 ) * T.fovPerSpeed, 0, T.fovMax ) : 0 );
+			const f = cam.fov + ( want - cam.fov ) * ( 1 - Math.exp( - dt * 3 ) );
+			if ( Math.abs( f - cam.fov ) > 0.01 ) {
+
+				cam.fov = f;
+				cam.updateProjectionMatrix();
+
+			}
+
+		}
+
+		p._camY = null;
+
+	}
+
+	_restoreFov() {
+
+		const cam = this.player.camera;
+		if ( this._fov === null || ! cam ) return;
+		cam.fov = this._fov;
+		cam.updateProjectionMatrix();
+		this._fov = null;
+
+	}
+
+	// third-person chase camera behind the board (V; the mouse orbits around it)
+	_chaseCamera( dt, look ) {
+
+		const p = this.player, cam = p.camera;
+		this._restoreFov();
 		this.camYawOff -= look.x * 0.003;
 		this.camPitch = clamp( this.camPitch + look.y * 0.003, 0.02, 1.2 );
 		if ( Math.abs( look.x ) < 0.5 ) this.camYawOff *= Math.exp( - dt * 0.6 ); // swings back behind the board

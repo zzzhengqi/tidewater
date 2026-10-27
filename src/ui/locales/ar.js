@@ -43,7 +43,6 @@ export default {
 	'keys.useAlt': "الصنارة: لفّ خيط فارغ\r",
 	'keys.cooler': "صندوق التبريد وسجل الأسماك\r",
 	'keys.boatCamera': "كاميرا القارب\r",
-	'keys.boatCameraSub': "منظور أول / ثالث أثناء القيادة\r",
 	'keys.freeCamera': "الكاميرا الحرة\r",
 	'keys.freeCameraSub': "حلّق في أي مكان، واضغط F مجددًا للمشي\r",
 	'keys.time': "إيقاف الوقت / تشغيله\r",
@@ -405,6 +404,11 @@ export default {
 
 	'error.deviceLost': "فُقد جهاز الرسوميات ({message}). أعد تحميل الصفحة للمتابعة.\r",
 	'error.gpu': "خطأ في الرسوميات: {message}\r",
+
+	'keys.boatCameraSub': "منظور أول / ثالث (عند الدفة وعلى لوح الأمواج)\r",
+
+	'surf.viewFirst': "منظور الشخص الأول\r",
+	'surf.viewChase': "منظور المتابعة\r",
 
 	'settings.tab.ocean': "المحيط",
 	'settings.folder.seaState': "حالة البحر",
