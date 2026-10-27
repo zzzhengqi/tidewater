@@ -71,6 +71,7 @@ const PATHS = {
 	hand: '<path d="M8.5 12.5V6.2a1.4 1.4 0 0 1 2.8 0v5.3"/><path d="M11.3 11V4.8a1.4 1.4 0 0 1 2.8 0V11"/><path d="M14.1 11.2V6.4a1.4 1.4 0 0 1 2.8 0v7.4"/><path d="M8.5 12.6 7 11a1.5 1.5 0 0 0-2.3 1.9l3.1 4.6a6 6 0 0 0 5 2.7h.6a4.5 4.5 0 0 0 4.5-4.5v-1.9"/>',
 	rod: '<path d="M4 20.5 18.5 4"/><circle cx="7.6" cy="16.4" r="1.9"/><path d="M18.5 4v9.5"/><path d="M18.5 13.5v1.6a1.6 1.6 0 1 1-1.6-1.6"/>',
 	gameplay: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.2 4.8-4.8 2.2 2.2-4.8z"/>',
+	surfboard: '<path d="M5.2 19.8c-1.9-1.9-.4-7.6 4-12S19.8 2.6 20.2 3.8s.3 6.9-4.1 11.3-9 6.6-10.9 4.7Z"/><path d="M6.8 17.2 17.6 6.4"/><path d="m7.6 20.4.4 2.1"/>',
 
 	dot: '<circle cx="12" cy="12" r="3.5"/>',
 
@@ -89,7 +90,7 @@ const ALIASES = {
 	sound: 'volume', audio: 'volume', music: 'volume',
 	terrain: 'mountain', gpu: 'cpu', display: 'monitor', screen: 'monitor', render: 'monitor',
 	question: 'help', x: 'close', cam: 'camera', color: 'palette', colors: 'palette', grade: 'palette',
-	walking: 'walk', swimming: 'swim', diving: 'dive', underwater: 'dive',
+	walking: 'walk', swimming: 'swim', diving: 'dive', underwater: 'dive', surf: 'surfboard', surfing: 'surfboard', groundswell: 'surfboard',
 	free: 'move', 'free-camera': 'move', fly: 'move', drone: 'move',
 	bubbles: 'foam', spray: 'foam', clouds: 'cloud', weather: 'cloud', rain: 'storm',
 	night: 'moon', dusk: 'sunset', dawn: 'sunset', sunrise: 'sunset',

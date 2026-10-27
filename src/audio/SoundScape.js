@@ -89,7 +89,7 @@ export const MIX = {
 	bail: - 40, // the bail wire flipping open / snapping shut
 	lineOut: - 38, // line peeling off the spool as the cast flies out
 	plop: - 30, // the bobber landing, at 4 m (falls off with distance)
-	reelWind: - 36, // cranking steadily
+	reelWind: - 27, // cranking steadily (raised 9 dB: it was lost under the sea at -36)
 	reelDrag: - 29, // the drag screaming under a fast run
 	lineStrain: - 44, // line creaking at the breaking point
 	lineSnap: - 24, // the line parting

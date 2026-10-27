@@ -273,7 +273,14 @@ struct ShorePair { s0: vec4f, s1: vec4f };
 
 struct ShoreRunup { tau: f32, Rt: f32, inland: f32, RhMax: f32, su: f32, sb: f32, isUp: bool };
 
-fn shoreHash1( x: f32 ) -> f32 { return fract( sin( x * 127.1 + 311.7 ) * 43758.5453 ); }
+// per-wave random number from the (integer) wave number: an integer hash (PCG), so the CPU mirror
+// (ocean/ShoreSampler.js shoreHash1) gets bit-identical values; fract( sin( big ) ) is GPU-specific
+fn shoreHash1( x: f32 ) -> f32 {
+	var h = bitcast<u32>( i32( round( x ) ) ) * 747796405u + 2891336453u;
+	h = ( ( h >> ( ( h >> 28u ) + 4u ) ) ^ h ) * 277803737u;
+	h = ( h >> 22u ) ^ h;
+	return f32( h >> 8u ) / 16777216.0;
+}
 
 // Bathymetry along the beach that the travel-time field doesn't resolve: a bar with rip channels
 // cut through it every ~100 m (irregular spacing and width). Over the bar the waves are bigger and

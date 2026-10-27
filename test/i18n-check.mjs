@@ -8,7 +8,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { languages, locales, keyOf } from '../src/ui/i18n.js';
+import { languages, locales, keyOf, PHRASE_NAMESPACES } from '../src/ui/i18n.js';
 import { FISH } from '../src/game/FishTable.js';
 import { UPGRADES } from '../src/game/Gear.js';
 import { Options } from '../src/core/Options.js';
@@ -132,9 +132,11 @@ for ( const m of appUI.matchAll( new RegExp( String.raw`\.addFolder\(\s*` + STR,
 for ( const m of appUI.matchAll( /^\t(\w+): \{ wind:/gm ) ) add( m[ 1 ], 'AppUI.js SEA presets' );
 for ( const m of appUI.matchAll( /format: \( v \) => [^'\n]*\?[^'\n]*: '([^']+)'/g ) ) add( m[ 1 ], 'AppUI.js format' );
 // the mode chip
-for ( const s of [ 'Free camera', 'Walk', 'Boat · 1st person', 'Boat · 3rd person', 'On deck', 'Diving', 'Swimming', 'Walking' ] ) {
+const surfSrc = read( 'src/surf/Surfing.js' );
+for ( const s of [ 'Free camera', 'Walk', 'Boat · 1st person', 'Boat · 3rd person', 'On deck', 'Diving', 'Swimming', 'Walking', 'Paddling', 'Riding a wave' ] ) {
 
-	if ( ! appUI.includes( s.replace( /[13](st|rd)/, '' ).split( ' · ' )[ 0 ] ) ) errors.push( `i18n-check: mode label "${ s }" no longer in AppUI.js, update this list` );
+	const key = s.replace( /[13](st|rd)/, '' ).split( ' · ' )[ 0 ];
+	if ( ! appUI.includes( key ) && ! surfSrc.includes( `'${ key }'` ) ) errors.push( `i18n-check: mode label "${ s }" no longer in AppUI.js / Surfing.js, update this list` );
 	add( s, 'AppUI.js mode' );
 
 }
@@ -158,6 +160,29 @@ for ( const s of [ 'Settings', 'Settings sections', 'Language', 'Open settings',
 const ui = read( 'src/ui/UI.js' );
 for ( const m of ui.matchAll( /\[ [\d.]+, '([^']+)' \]/g ) ) add( m[ 1 ], 'UI.js PHASES' );
 for ( const [ text, where ] of phrases ) if ( ! keyOf( text ) ) errors.push( `${ where }: "${ text }" has no entry in en.js (phrase namespaces), so it stays English` );
+
+// English text looked up by phrase() must be unambiguous: keys sharing an English value must share
+// every translation too (else the first key wins, e.g. a mode chip showing an option's wording)
+const byEnglish = new Map();
+for ( const [ k, v ] of Object.entries( en ) ) {
+
+	if ( ! PHRASE_NAMESPACES.includes( k.split( '.' )[ 0 ] ) ) continue;
+	if ( ! byEnglish.has( v ) ) byEnglish.set( v, [] );
+	byEnglish.get( v ).push( k );
+
+}
+
+for ( const [ v, keys ] of byEnglish ) {
+
+	if ( keys.length < 2 ) continue;
+	for ( const [ code ] of languages ) {
+
+		const tr = new Set( keys.map( ( k ) => locales[ code ][ k ] ) );
+		if ( tr.size > 1 ) errors.push( `"${ v }" is the English of ${ keys.join( ', ' ) } but ${ code } translates them differently: make the English unique` );
+
+	}
+
+}
 
 // 5: leftover English in game markup (text between tags, outside ${ } and the CSS blocks)
 for ( const p of [ 'src/game/GameHUD.js', 'src/game/Guide.js', 'src/game/Minimap.js' ] ) {

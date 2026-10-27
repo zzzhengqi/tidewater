@@ -358,6 +358,46 @@ export default {
 	'tip.joe': "<b>Joe</b> buys your fish. <kbd>E</kbd> to see what he will pay.",
 	'tip.marta': "<b>Marta</b> sells upgrades and diesel. <kbd>E</kbd> to see her stock.",
 
+	'keys.upSub': "Surf: catch a wave, jump off",
+
+	'equip.surfboard': "Surfboard",
+	'equip.surfboardHint': "In the water you lie on it and paddle: W A S D, Shift harder, Space to catch a wave",
+	'equip.surfboardUnavailable': "Not on the boat",
+
+	'options.surfing': "Surfing",
+	'options.surfingTip': "The surfboard on the equipment wheel. Off: it is not on the wheel.",
+	'options.surfHud': "Surf ride stats",
+	'options.surfHudTip': "Shows the time and distance of the current ride while you surf.",
+
+	'settings.preset.groundswell': "Groundswell",
+
+	'mode.paddling': "Paddling",
+	'mode.surfing': "Riding a wave",
+
+	'prompt.paddle': "Catch the wave   ·   W A S D  paddle   ·   Shift  harder",
+	'prompt.ride': "Jump off   ·   A D  carve   ·   W  pump   ·   S  slow down",
+	'prompt.rightBoat': "Right the boat",
+
+	'surf.caught': "Up and riding!",
+	'surf.tooSlow': "Too slow: the wave rolled under you. Paddle hard (Shift) as it lifts you.",
+	'surf.wrongDir': "Point the board at the beach to catch the wave.",
+	'surf.noWave': "No wave to catch here: wait for a set, then paddle in front of the breaking peak.",
+	'surf.whitewater': "That's whitewater: catch the wave just before it breaks.",
+	'surf.wipeWhitewater': "Wiped out in the whitewater.",
+	'surf.wipeRocks': "Hit the reef!",
+	'surf.waveFaded': "The wave faded out.",
+	'surf.jumpedOff': "You jumped off.",
+	'surf.rideEnd': "Ride over: you made it to the shallows.",
+	'surf.hud': "Ride {time} · {dist}",
+
+	'unit.s': "{v} s",
+
+	'toast.capsized': "The boat capsized: swim up to her and press E to right her",
+	'toast.boatTowed': "The boat is back at the pier",
+
+	'settings.folder.boat': "Boat",
+	'settings.towTheBoat': "Tow the boat back to the pier",
+	'settings.towTheBoatTip': "Brings the boat back to her berth, upright, from wherever she is. Anyone aboard comes along.",
 	'settings.tab.ocean': "Ocean",
 	'settings.folder.seaState': "Sea state",
 	'settings.conditions': "Conditions",

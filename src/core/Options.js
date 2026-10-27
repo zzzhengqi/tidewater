@@ -66,6 +66,8 @@ export const Options = {
 };
 
 Options.define( { id: 'fishing', label: 'options.fishing', tip: 'options.fishingTip', value: true } );
+Options.define( { id: 'surfing', label: 'options.surfing', tip: 'options.surfingTip', value: true } );
+Options.define( { id: 'surfHud', label: 'options.surfHud', tip: 'options.surfHudTip', value: false } );
 Options.define( { id: 'minimap', label: 'options.minimap', tip: 'options.minimapTip', value: true } );
 Options.define( { id: 'lightHud', label: 'options.lightHud', tip: 'options.lightHudTip', value: false } );
 Options.define( { id: 'guide', label: 'options.guide', tip: 'options.guideTip', value: true } );

@@ -14,7 +14,7 @@ export const KEYMAP = [
 	{ id: 'move', section: 'move', codes: [ 'KeyW', 'KeyA', 'KeyS', 'KeyD' ], caps: [ 'WASD' ], label: 'keys.move', sub: 'keys.moveSub' },
 	{ id: 'look', section: 'move', caps: [ 'Mouse' ], label: 'keys.look', sub: 'keys.lookSub' },
 	{ id: 'sprint', section: 'move', codes: [ 'ShiftLeft', 'ShiftRight' ], caps: [ 'Shift' ], label: 'keys.sprint' },
-	{ id: 'up', section: 'move', codes: [ 'Space' ], label: 'keys.up' },
+	{ id: 'up', section: 'move', codes: [ 'Space' ], label: 'keys.up', sub: 'keys.upSub' },
 	{ id: 'down', section: 'move', codes: [ 'KeyC' ], label: 'keys.down' },
 
 	{ id: 'interact', section: 'actions', codes: [ 'KeyE' ], label: 'keys.interact', sub: 'keys.interactSub' },

@@ -6,6 +6,10 @@ import { Options } from '../core/Options.js';
 import { codesOf } from '../core/Keymap.js';
 import { english } from './i18n.js';
 import { RadialWheel } from './RadialWheel.js';
+import { WORLD } from '../world/WorldLayout.js';
+
+// offshore wind: blowing from the beach out to sea, against the swell (degrees, the wind-direction slider's convention)
+const OFFSHORE = ( ( Math.atan2( - WORLD.swellDir.y, - WORLD.swellDir.x ) * 180 / Math.PI ) + 360 ) % 360;
 
 // Binds the Tidewater UI (panel + HUD) to the running app.
 const SEA = {
@@ -13,6 +17,8 @@ const SEA = {
 	Breezy: { wind: 7, fetch: 120, chop: 0.9, swell: 0.48, surf: 0.34, period: 9, whitecaps: 0.5 },
 	Choppy: { wind: 12, fetch: 300, chop: 1.05, swell: 0.68, surf: 0.56, period: 8.5, whitecaps: 0.75 },
 	Storm: { wind: 20, fetch: 900, chop: 1.2, swell: 1.0, surf: 0.9, period: 12, whitecaps: 1 },
+	// good for surfing: a long-period groundswell (~1.3 m breakers), light offshore wind keeping the faces clean
+	Groundswell: { wind: 4, windDir: Math.round( OFFSHORE ), fetch: 60, chop: 0.7, swell: 0.9, surf: 0.65, period: 13, whitecaps: 0.15 },
 };
 
 export class AppUI {
@@ -204,8 +210,11 @@ export class AppUI {
 		// one switch per gameplay option (core/Options.js: a new option shows up here by itself)
 		const play = {};
 		for ( const o of Options.list() ) Object.defineProperty( play, o.id, { enumerable: true, get: () => Options.get( o.id ), set: ( v ) => Options.set( o.id, v ) } );
-		const options = ui.addTab( 'gameplay', 'Gameplay', 'gameplay' ).addFolder( 'Gameplay options', { icon: 'gameplay' } );
+		const playTab = ui.addTab( 'gameplay', 'Gameplay', 'gameplay' );
+		const options = playTab.addFolder( 'Gameplay options', { icon: 'gameplay' } );
 		for ( const o of Options.list() ) options.addToggle( { label: english( o.label ), tooltip: o.tip ? english( o.tip ) : undefined, object: play, key: o.id } );
+		// way out when the boat is capsized, aground or far away (E beside a capsized boat rights her too)
+		playTab.addFolder( 'Boat', { icon: 'boat' } ).addButton( { label: 'Tow the boat back to the pier', icon: 'anchor', tooltip: 'Brings the boat back to her berth, upright, from wherever she is. Anyone aboard comes along.', onClick: () => app.towBoat() } );
 		const applyOptions = () => {
 
 			ui.root.classList.toggle( 'is-light-hud', Options.get( 'lightHud' ) );
@@ -301,7 +310,8 @@ export class AppUI {
 
 		}
 
-		const mode = p.mode === 'boat' ? `Boat · ${ p.camMode === 'first' ? '1st' : '3rd' } person`
+		const mode = p.mode === 'surf' && app.surf ? app.surf.modeLabel
+			: p.mode === 'boat' ?`Boat · ${ p.camMode === 'first' ? '1st' : '3rd' } person`
 			: p.mode === 'deck' ? 'On deck'
 			: p.mode === 'swim' ? ( app.camera.position.y < ( app.cameraWaterHeight ?? 0 ) - 0.3 ? 'Diving' : 'Swimming' ) : 'Walking';
 		ui.setMode( mode );

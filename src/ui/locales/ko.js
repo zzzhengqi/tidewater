@@ -358,6 +358,46 @@ export default {
 	'tip.joe': "<b>조</b>가 물고기를 사 줍니다. <kbd>E</kbd>로 얼마를 줄지 확인하세요.",
 	'tip.marta': "<b>마르타</b>는 업그레이드와 디젤을 팝니다. <kbd>E</kbd>로 물건을 보세요.",
 
+	'keys.upSub': "서핑: 테이크오프, 뛰어내리기",
+
+	'equip.surfboard': "서프보드",
+	'equip.surfboardHint': "물에 들어가면 엎드려 패들: WASD 방향, Shift 더 세게, 스페이스로 테이크오프",
+	'equip.surfboardUnavailable': "보트 위에서는 쓸 수 없어요",
+
+	'options.surfing': "서핑",
+	'options.surfingTip': "장비 휠의 서프보드. 끄면 휠에 나오지 않습니다.",
+	'options.surfHud': "서핑 기록",
+	'options.surfHudTip': "서핑 중 이번 라이드의 시간과 거리를 표시합니다.",
+
+	'settings.preset.groundswell': "서핑 파도",
+
+	'mode.paddling': "패들링",
+	'mode.surfing': "파도 타는 중",
+
+	'prompt.paddle': "테이크오프   ·   W A S D  패들   ·   Shift  더 세게",
+	'prompt.ride': "뛰어내리기   ·   A D  카빙   ·   W  펌핑   ·   S  감속",
+	'prompt.rightBoat': "보트 바로 세우기",
+
+	'surf.caught': "일어섰다! 파도를 타는 중",
+	'surf.tooSlow': "너무 느려서 파도가 아래로 지나갔어요. 파도가 들어 올릴 때 Shift로 세게 패들하세요.",
+	'surf.wrongDir': "보드 앞을 해변 쪽으로 향해야 파도를 잡을 수 있어요.",
+	'surf.noWave': "여기엔 탈 파도가 없어요. 세트를 기다렸다가 부서지기 시작하는 봉우리 앞에서 패들하세요.",
+	'surf.whitewater': "그건 화이트워터예요. 부서지기 직전의 파도를 잡으세요.",
+	'surf.wipeWhitewater': "화이트워터에 휩쓸려 넘어졌어요.",
+	'surf.wipeRocks': "산호초에 부딪혔어요!",
+	'surf.waveFaded': "파도가 사그라들었어요.",
+	'surf.jumpedOff': "보드에서 뛰어내렸어요.",
+	'surf.rideEnd': "얕은 곳까지 타고 왔어요.",
+	'surf.hud': "라이드 {time} · {dist}",
+
+	'unit.s': "{v}초",
+
+	'toast.capsized': "보트가 뒤집혔어요: 헤엄쳐 가서 E로 바로 세우세요",
+	'toast.boatTowed': "보트를 부두로 끌어왔어요",
+
+	'settings.folder.boat': "보트",
+	'settings.towTheBoat': "보트를 부두로 끌어오기",
+	'settings.towTheBoatTip': "어디에 있든(전복, 좌초, 표류) 보트를 바로 세워 정박지로 돌려놓습니다. 타고 있던 사람도 함께 옵니다.",
 	'settings.tab.ocean': "해양",
 	'settings.folder.seaState': "해상 상태",
 	'settings.conditions': "해상 상태 사전 설정",

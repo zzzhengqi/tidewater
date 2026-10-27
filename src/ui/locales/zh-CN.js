@@ -358,6 +358,46 @@ export default {
 	'tip.joe': "<b>乔</b>收购你的鱼。按 <kbd>E</kbd> 看看他出什么价。",
 	'tip.marta': "<b>玛尔塔</b>出售升级和柴油。按 <kbd>E</kbd> 看看她有什么货。",
 
+	'keys.upSub': "冲浪：起乘、跳下",
+
+	'equip.surfboard': "冲浪板",
+	'equip.surfboardHint': "下水后趴板划水：WASD 控制方向，Shift 更用力，空格起乘",
+	'equip.surfboardUnavailable': "在船上不能使用",
+
+	'options.surfing': "冲浪玩法",
+	'options.surfingTip': "装备轮盘里的冲浪板。关闭后轮盘里不出现冲浪板。",
+	'options.surfHud': "冲浪数据",
+	'options.surfHudTip': "冲浪时显示本次滑行的时长和距离。",
+
+	'settings.preset.groundswell': "冲浪浪况",
+
+	'mode.paddling': "划水",
+	'mode.surfing': "冲浪中",
+
+	'prompt.paddle': "起乘   ·   W A S D  划水   ·   Shift  更用力",
+	'prompt.ride': "跳下   ·   A D  转向   ·   W  压浪加速   ·   S  减速",
+	'prompt.rightBoat': "扶正船体",
+
+	'surf.caught': "站起来了，正在冲浪！",
+	'surf.tooSlow': "太慢了：浪从你身下滚过去了。浪抬起你时用力划（Shift）。",
+	'surf.wrongDir': "板头要对准沙滩才能接住浪。",
+	'surf.noWave': "这里没有可接的浪：等一组浪过来，在正要破碎的浪峰前面划水。",
+	'surf.whitewater': "那是白水：要在浪破碎之前接住它。",
+	'surf.wipeWhitewater': "被白水卷翻了。",
+	'surf.wipeRocks': "撞上礁石了！",
+	'surf.waveFaded': "浪消退了。",
+	'surf.jumpedOff': "你跳下了冲浪板。",
+	'surf.rideEnd': "滑到浅滩，这一趟结束了。",
+	'surf.hud': "滑行 {time} · {dist}",
+
+	'unit.s': "{v} 秒",
+
+	'toast.capsized': "船翻了：游到船边按 E 扶正它",
+	'toast.boatTowed': "船已经拖回码头",
+
+	'settings.folder.boat': "船",
+	'settings.towTheBoat': "把船拖回码头",
+	'settings.towTheBoatTip': "无论船在哪里（翻覆、搁浅、漂远），都把它扶正并送回泊位。船上的人会一起回来。",
 	'settings.tab.ocean': "海洋",
 	'settings.folder.seaState': "海况",
 	'settings.conditions': "海况预设",
