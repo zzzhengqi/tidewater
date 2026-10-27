@@ -38,7 +38,6 @@ export default {
 	'keys.interact': "상호작용",
 	'keys.interactSub': "탑승, 조타, 하선, 대화",
 	'keys.equipment': "장비 휠",
-	'keys.equipmentSub': "R로 열고, 다시 R로 다음 항목, 클릭이나 Enter로 장착",
 	'keys.use': "손에 든 장비 사용",
 	'keys.useSub': "낚싯대: 누르고 있다 캐스팅, 클릭해 챔질, 누르고 있어 감기",
 	'keys.useAlt': "낚싯대: 빈 줄 감기",
@@ -64,7 +63,6 @@ export default {
 	'help.replayGuide': "개요 다시 보기",
 
 	'wheel.equipment': "장비",
-	'wheel.controls': "<kbd>R</kbd> 다음 · <kbd>클릭</kbd> 또는 <kbd>Enter</kbd> 장착 · <kbd>Esc</kbd> 취소",
 	'wheel.equipped': "지금 들고 있음",
 	'wheel.unavailable': "여기서는 사용할 수 없음",
 	'wheel.busy': "지금은 안 돼요: 하던 일을 먼저 끝내세요",
@@ -398,6 +396,16 @@ export default {
 	'settings.folder.boat': "보트",
 	'settings.towTheBoat': "보트를 부두로 끌어오기",
 	'settings.towTheBoatTip': "어디에 있든(전복, 좌초, 표류) 보트를 바로 세워 정박지로 돌려놓습니다. 타고 있던 사람도 함께 옵니다.",
+
+	'keys.equipmentSub': "R로 열기 · R / 휠 / 1–9로 선택 · 클릭이나 Enter로 장착 · R을 누른 채 가리키고 떼도 됨",
+
+	'wheel.controls': "<kbd>R</kbd> / 휠 다음 · <kbd>1</kbd>–<kbd>9</kbd> 바로 선택 · <kbd>클릭</kbd> / <kbd>Enter</kbd> 장착 · <kbd>Esc</kbd> 취소",
+	'wheel.controls2': "또는 <kbd>R</kbd>을 누른 채 항목을 가리키고 떼기 · <kbd>Shift</kbd>+<kbd>R</kbd> 이전",
+	'wheel.unavailableHint': "지금은 쓸 수 없어요",
+
+	'error.deviceLost': "그래픽 장치를 잃었습니다({message}). 페이지를 새로 고치세요.",
+	'error.gpu': "렌더링 오류: {message}",
+
 	'settings.tab.ocean': "해양",
 	'settings.folder.seaState': "해상 상태",
 	'settings.conditions': "해상 상태 사전 설정",

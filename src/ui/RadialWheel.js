@@ -16,30 +16,38 @@ import { t, onLanguageChange } from './i18n.js';
 //     canOpen: () => true,                 // or an i18n key: refused, shown as a toast
 //   } );
 //
-// While open: the mouse moves a virtual cursor (pointer lock stays on) that picks a sector, left click
-// or Enter takes the highlighted item, Esc / right click / a movement key closes without a change.
-// The wheel swallows the mouse and its own keys so the camera doesn't turn and the rod doesn't cast.
+// While open:
+//   mouse      a virtual cursor (pointer lock stays on) picks the sector it points at; left click takes it
+//   R / scroll next item clockwise (scroll up: counter-clockwise)
+//   1 … 9      take that item straight away (the numbers are printed on the sectors)
+//   Enter      take the highlighted item
+//   hold R     open, point, let go: takes the highlighted item (a quick tap leaves the wheel open)
+//   Esc, right click or a movement key: close without a change
+// Every sector shows its icon, name and number; the item in hand carries a sun-coloured dot, items that
+// can't be used here are dimmed with the reason in the centre. The wheel swallows the mouse and its own
+// keys, so the camera doesn't turn and the rod doesn't cast while choosing.
 
-const VB = 200, R_OUT = 96, R_IN = 42, GAP = 1.6; // svg units; GAP in degrees between sectors
-const DEAD = 0.2; // virtual cursor dead zone (fraction of the outer radius)
+const VB = 200, R_OUT = 96, R_IN = 46, GAP = 1.6; // svg units; GAP in degrees between sectors
+const DEAD = 0.22; // virtual cursor dead zone (fraction of the outer radius)
+const HOLD_MS = 320; // R held at least this long and released: take the highlighted item
 
 const rad = ( d ) => d * Math.PI / 180;
 const pt = ( r, deg ) => [ ( VB / 2 + r * Math.cos( rad( deg ) ) ).toFixed( 2 ), ( VB / 2 + r * Math.sin( rad( deg ) ) ).toFixed( 2 ) ];
 
-function sectorPath( a0, a1 ) {
+function sectorPath( a0, a1, rOut = R_OUT, rIn = R_IN ) {
 
 	if ( a1 - a0 >= 359.9 ) {
 
 		// a whole ring: two half arcs each way
-		const [ ox, oy ] = pt( R_OUT, - 90 ), [ px, py ] = pt( R_OUT, 90 ), [ ix, iy ] = pt( R_IN, - 90 ), [ qx, qy ] = pt( R_IN, 90 );
-		return `M${ ox } ${ oy }A${ R_OUT } ${ R_OUT } 0 1 1 ${ px } ${ py }A${ R_OUT } ${ R_OUT } 0 1 1 ${ ox } ${ oy }Z`
-			+ `M${ ix } ${ iy }A${ R_IN } ${ R_IN } 0 1 0 ${ qx } ${ qy }A${ R_IN } ${ R_IN } 0 1 0 ${ ix } ${ iy }Z`;
+		const [ ox, oy ] = pt( rOut, - 90 ), [ px, py ] = pt( rOut, 90 ), [ ix, iy ] = pt( rIn, - 90 ), [ qx, qy ] = pt( rIn, 90 );
+		return `M${ ox } ${ oy }A${ rOut } ${ rOut } 0 1 1 ${ px } ${ py }A${ rOut } ${ rOut } 0 1 1 ${ ox } ${ oy }Z`
+			+ `M${ ix } ${ iy }A${ rIn } ${ rIn } 0 1 0 ${ qx } ${ qy }A${ rIn } ${ rIn } 0 1 0 ${ ix } ${ iy }Z`;
 
 	}
 
 	const large = a1 - a0 > 180 ? 1 : 0;
-	const [ x0, y0 ] = pt( R_OUT, a0 ), [ x1, y1 ] = pt( R_OUT, a1 ), [ x2, y2 ] = pt( R_IN, a1 ), [ x3, y3 ] = pt( R_IN, a0 );
-	return `M${ x0 } ${ y0 }A${ R_OUT } ${ R_OUT } 0 ${ large } 1 ${ x1 } ${ y1 }L${ x2 } ${ y2 }A${ R_IN } ${ R_IN } 0 ${ large } 0 ${ x3 } ${ y3 }Z`;
+	const [ x0, y0 ] = pt( rOut, a0 ), [ x1, y1 ] = pt( rOut, a1 ), [ x2, y2 ] = pt( rIn, a1 ), [ x3, y3 ] = pt( rIn, a0 );
+	return `M${ x0 } ${ y0 }A${ rOut } ${ rOut } 0 ${ large } 1 ${ x1 } ${ y1 }L${ x2 } ${ y2 }A${ rIn } ${ rIn } 0 ${ large } 0 ${ x3 } ${ y3 }Z`;
 
 }
 
@@ -61,6 +69,7 @@ export class RadialWheel {
 		this.items = [];
 		this.hot = - 1;
 		this.cursor = { x: 0, y: 0 };
+		this._downAt = 0;
 
 		this.el = document.createElement( 'div' );
 		this.el.className = 'tw-wheel';
@@ -68,24 +77,30 @@ export class RadialWheel {
 		this.el.innerHTML = `<div class="tw-wheel-dial" role="listbox">
 			<svg class="tw-wheel-ring" viewBox="0 0 ${ VB } ${ VB }"></svg>
 			<div class="tw-wheel-icons"></div>
-			<div class="tw-wheel-center"><span class="tw-wheel-title"></span><b class="tw-wheel-name"></b><span class="tw-wheel-hint"></span></div>
+			<div class="tw-wheel-center"><span class="tw-wheel-title"></span><span class="tw-wheel-big"></span><b class="tw-wheel-name"></b><span class="tw-wheel-state"></span><span class="tw-wheel-hint"></span></div>
 			<span class="tw-wheel-cursor"></span>
-		</div><div class="tw-wheel-keys"></div>`;
-		this.dial = this.el.querySelector( '.tw-wheel-dial' );
-		this.svg = this.el.querySelector( 'svg' );
-		this.iconsEl = this.el.querySelector( '.tw-wheel-icons' );
-		this.titleEl = this.el.querySelector( '.tw-wheel-title' );
-		this.nameEl = this.el.querySelector( '.tw-wheel-name' );
-		this.hintEl = this.el.querySelector( '.tw-wheel-hint' );
-		this.keysEl = this.el.querySelector( '.tw-wheel-keys' );
-		this.cursorEl = this.el.querySelector( '.tw-wheel-cursor' );
+		</div><div class="tw-wheel-keys"></div><div class="tw-wheel-keys2"></div>`;
+		const q = ( s ) => this.el.querySelector( s );
+		this.dial = q( '.tw-wheel-dial' );
+		this.svg = q( 'svg' );
+		this.iconsEl = q( '.tw-wheel-icons' );
+		this.titleEl = q( '.tw-wheel-title' );
+		this.bigEl = q( '.tw-wheel-big' );
+		this.nameEl = q( '.tw-wheel-name' );
+		this.stateEl = q( '.tw-wheel-state' );
+		this.hintEl = q( '.tw-wheel-hint' );
+		this.keysEl = q( '.tw-wheel-keys' );
+		this.keys2El = q( '.tw-wheel-keys2' );
+		this.cursorEl = q( '.tw-wheel-cursor' );
 		( ui.root || document.body ).append( this.el );
 
 		this._ac = new AbortController();
 		const opts = { capture: true, signal: this._ac.signal };
 		window.addEventListener( 'keydown', ( e ) => this._onKey( e ), opts );
+		window.addEventListener( 'keyup', ( e ) => this._onKeyUp( e ), opts );
 		window.addEventListener( 'mousemove', ( e ) => this._onMove( e ), opts );
 		window.addEventListener( 'mousedown', ( e ) => this._onDown( e ), opts );
+		window.addEventListener( 'wheel', ( e ) => this._onWheel( e ), { capture: true, passive: false, signal: this._ac.signal } );
 		window.addEventListener( 'contextmenu', ( e ) => {
 
 			if ( this.isOpen ) e.preventDefault();
@@ -98,7 +113,12 @@ export class RadialWheel {
 		}, { signal: this._ac.signal } );
 		this._offLanguage = onLanguageChange( () => {
 
-			if ( this.isOpen ) this._paintText();
+			if ( this.isOpen ) {
+
+				this._build();
+				this._paint();
+
+			}
 
 		} );
 
@@ -129,7 +149,7 @@ export class RadialWheel {
 
 	}
 
-	// confirm: pick the highlighted item
+	// confirm: take the highlighted item
 	close( confirm = false ) {
 
 		if ( ! this.isOpen ) return;
@@ -140,13 +160,13 @@ export class RadialWheel {
 
 	}
 
-	// next available item clockwise
-	next() {
+	// next (dir 1) / previous (dir -1) available item
+	next( dir = 1 ) {
 
 		const n = this.items.length;
 		for ( let k = 1; k <= n; k ++ ) {
 
-			const j = ( this.hot + k ) % n;
+			const j = ( ( this.hot + k * dir ) % n + n ) % n;
 			if ( this.registry.isAvailable( this.items[ j ] ) ) {
 
 				this.hot = j;
@@ -169,14 +189,21 @@ export class RadialWheel {
 			const mid = - 90 + i * span;
 			const g = n > 1 ? GAP / 2 : 0;
 			paths += `<path class="tw-wheel-sector" data-i="${ i }" d="${ sectorPath( mid - span / 2 + g, mid + span / 2 - g ) }"/>`;
-			const [ x, y ] = pt( ( R_OUT + R_IN ) / 2, n > 1 ? mid : - 90 );
-			icons += `<span class="tw-wheel-item" data-i="${ i }" style="left:${ ( x / VB * 100 ).toFixed( 2 ) }%;top:${ ( y / VB * 100 ).toFixed( 2 ) }%">${ icon( it.icon ) }<i></i></span>`;
+			// the thin outer rim that lights up on the highlighted sector
+			paths += `<path class="tw-wheel-rim" data-i="${ i }" d="${ sectorPath( mid - span / 2 + g + 0.6, mid + span / 2 - g - 0.6, R_OUT + 3.2, R_OUT + 1.2 ) }"/>`;
+			const [ x, y ] = pt( ( R_OUT + R_IN ) / 2 + 2, n > 1 ? mid : - 90 );
+			icons += `<span class="tw-wheel-item" data-i="${ i }" style="left:${ ( x / VB * 100 ).toFixed( 2 ) }%;top:${ ( y / VB * 100 ).toFixed( 2 ) }%;--d:${ i * 35 }ms">`
+				+ `${ icon( it.icon ) }<em>${ t( it.label ) }</em>${ i < 9 ? `<b>${ i + 1 }</b>` : '' }<i></i></span>`;
 
 		} );
-		this.svg.innerHTML = `<circle class="tw-wheel-hub" cx="${ VB / 2 }" cy="${ VB / 2 }" r="${ R_IN - 4 }"/>${ paths }`;
+		this.svg.innerHTML = `<circle class="tw-wheel-hub" cx="${ VB / 2 }" cy="${ VB / 2 }" r="${ R_IN - 3 }"/>${ paths }`;
 		this.iconsEl.innerHTML = icons;
 		this._sectors = [ ...this.svg.querySelectorAll( '.tw-wheel-sector' ) ];
+		this._rims = [ ...this.svg.querySelectorAll( '.tw-wheel-rim' ) ];
 		this._icons = [ ...this.iconsEl.querySelectorAll( '.tw-wheel-item' ) ];
+		this.titleEl.textContent = t( this.title );
+		this.keysEl.innerHTML = t( 'wheel.controls' );
+		this.keys2El.innerHTML = t( 'wheel.controls2' );
 
 	}
 
@@ -186,7 +213,7 @@ export class RadialWheel {
 		this.items.forEach( ( it, i ) => {
 
 			const off = ! this.registry.isAvailable( it );
-			for ( const el of [ this._sectors[ i ], this._icons[ i ] ] ) {
+			for ( const el of [ this._sectors[ i ], this._rims[ i ], this._icons[ i ] ] ) {
 
 				el.classList.toggle( 'is-hot', i === this.hot );
 				el.classList.toggle( 'is-current', it.id === cur );
@@ -195,19 +222,14 @@ export class RadialWheel {
 			}
 
 		} );
-		this._paintText();
-		this.cursorEl.style.transform = `translate(calc(-50% + ${ this.cursor.x.toFixed( 1 ) }px), calc(-50% + ${ this.cursor.y.toFixed( 1 ) }px))`;
-
-	}
-
-	_paintText() {
-
 		const it = this.items[ this.hot ];
-		this.titleEl.textContent = t( this.title );
+		this.bigEl.innerHTML = it ? icon( it.icon ) : '';
 		this.nameEl.textContent = it ? t( it.label ) : '';
 		const off = it && ! this.registry.isAvailable( it );
-		this.hintEl.textContent = ! it ? '' : off ? t( it.unavailableHint || 'wheel.unavailable' ) : it.id === this.current() ? t( 'wheel.equipped' ) : t( it.hint );
-		this.keysEl.innerHTML = t( 'wheel.controls' );
+		this.stateEl.textContent = ! it ? '' : off ? t( 'wheel.unavailable' ) : it.id === cur ? t( 'wheel.equipped' ) : '';
+		this.stateEl.className = 'tw-wheel-state' + ( off ? ' is-off' : it && it.id === cur ? ' is-current' : '' );
+		this.hintEl.textContent = ! it ? '' : off ? t( it.unavailableHint || 'wheel.unavailableHint' ) : t( it.hint );
+		this.cursorEl.style.transform = `translate(calc(-50% + ${ this.cursor.x.toFixed( 1 ) }px), calc(-50% + ${ this.cursor.y.toFixed( 1 ) }px))`;
 
 	}
 
@@ -218,6 +240,7 @@ export class RadialWheel {
 
 			if ( this.codes.includes( e.code ) && ! e.repeat && this.open() ) {
 
+				this._downAt = performance.now();
 				e.preventDefault();
 				e.stopImmediatePropagation();
 
@@ -227,9 +250,30 @@ export class RadialWheel {
 
 		}
 
+		const digit = /^(Digit|Numpad)([1-9])$/.exec( e.code );
 		if ( this.codes.includes( e.code ) ) {
 
-			if ( ! e.repeat ) this.next();
+			if ( ! e.repeat ) {
+
+				this._downAt = performance.now();
+				this.next( e.shiftKey ? - 1 : 1 );
+
+			}
+
+		} else if ( digit ) {
+
+			const i = Number( digit[ 2 ] ) - 1;
+			if ( this.items[ i ] && this.registry.isAvailable( this.items[ i ] ) ) {
+
+				this.hot = i;
+				this.close( true );
+
+			} else if ( this.items[ i ] ) {
+
+				this.hot = i; // show why it can't be taken
+				this._paint();
+
+			}
 
 		} else if ( e.code === 'Enter' || e.code === 'NumpadEnter' ) {
 
@@ -248,6 +292,30 @@ export class RadialWheel {
 
 		e.preventDefault();
 		e.stopImmediatePropagation();
+
+	}
+
+	// hold R, point, let go: take what is highlighted (a quick tap leaves the wheel open)
+	_onKeyUp( e ) {
+
+		if ( ! this.isOpen || ! this.codes.includes( e.code ) || ! this._downAt ) return;
+		const held = performance.now() - this._downAt;
+		this._downAt = 0;
+		if ( held >= HOLD_MS ) this.close( true );
+		e.stopImmediatePropagation();
+
+	}
+
+	_onWheel( e ) {
+
+		if ( ! this.isOpen ) return;
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		if ( Math.abs( e.deltaY ) < 1 ) return;
+		const now = performance.now();
+		if ( now - ( this._wheelT || 0 ) < 90 ) return; // a touchpad sends a burst
+		this._wheelT = now;
+		this.next( e.deltaY > 0 ? 1 : - 1 );
 
 	}
 
@@ -282,7 +350,7 @@ export class RadialWheel {
 			const n = this.items.length;
 			const a = ( Math.atan2( this.cursor.y, this.cursor.x ) * 180 / Math.PI + 90 + 360 + 180 / n ) % 360;
 			const i = Math.floor( a / ( 360 / n ) ) % n;
-			if ( this.registry.isAvailable( this.items[ i ] ) ) this.hot = i;
+			if ( i !== this.hot ) this.hot = i; // (an unavailable item can be pointed at: the centre says why)
 
 		}
 

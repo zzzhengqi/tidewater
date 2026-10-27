@@ -2643,11 +2643,11 @@ body {
 	display: grid;
 	place-items: center;
 	align-content: center;
-	gap: var(--tw-4);
+	gap: var(--tw-2);
 	pointer-events: none;
 	opacity: 0;
 	visibility: hidden;
-	background: radial-gradient(60% 60% at 50% 50%, rgba(4, 10, 16, 0.18), rgba(4, 10, 16, 0.42));
+	background: radial-gradient(55% 55% at 50% 50%, rgba(4, 10, 16, 0.2), rgba(4, 10, 16, 0.5));
 	transition: opacity var(--tw-fast) var(--tw-ease), visibility 0s linear var(--tw-fast);
 }
 
@@ -2659,51 +2659,83 @@ body {
 
 .tw-wheel-dial {
 	position: relative;
-	width: calc(340 * var(--tw-u));
+	width: min(calc(400 * var(--tw-u)), 78vmin);
 	aspect-ratio: 1;
-	transform: scale(0.92);
+	margin-bottom: var(--tw-2);
+	transform: scale(0.9) rotate(-6deg);
 	transition: transform var(--tw-med) var(--tw-ease);
-	filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.45));
+	filter: drop-shadow(0 22px 48px rgba(0, 0, 0, 0.5));
 }
 
-.tw-wheel.is-on .tw-wheel-dial { transform: scale(1); }
+.tw-wheel.is-on .tw-wheel-dial { transform: scale(1) rotate(0deg); }
 
 .tw-wheel-ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 
-.tw-wheel-hub { fill: rgba(10, 16, 24, 0.72); stroke: var(--tw-line-2); stroke-width: 0.6; }
+.tw-wheel-hub { fill: rgba(8, 14, 22, 0.82); stroke: var(--tw-line-2); stroke-width: 0.6; }
 
 .tw-wheel-sector {
-	fill: rgba(12, 20, 28, 0.66);
+	fill: rgba(12, 20, 28, 0.7);
 	stroke: rgba(170, 215, 235, 0.16);
 	stroke-width: 0.6;
 	transition: fill var(--tw-fast) var(--tw-ease), stroke var(--tw-fast) var(--tw-ease);
 }
 
-.tw-wheel-sector.is-current { stroke: rgba(var(--tw-sun-rgb), 0.75); stroke-width: 1.1; }
-.tw-wheel-sector.is-hot { fill: rgba(var(--tw-aqua-rgb), 0.3); stroke: var(--tw-aqua); stroke-width: 1.2; }
-.tw-wheel-sector.is-off { fill: rgba(12, 20, 28, 0.42); }
+.tw-wheel-sector.is-current { fill: rgba(var(--tw-sun-rgb), 0.1); stroke: rgba(var(--tw-sun-rgb), 0.6); stroke-width: 0.9; }
+.tw-wheel-sector.is-hot { fill: rgba(var(--tw-aqua-rgb), 0.26); stroke: var(--tw-aqua); stroke-width: 1.1; }
+.tw-wheel-sector.is-off { fill: rgba(12, 20, 28, 0.45); }
+.tw-wheel-sector.is-off.is-hot { fill: rgba(255, 122, 133, 0.12); stroke: rgba(255, 122, 133, 0.7); }
+
+.tw-wheel-rim { fill: transparent; transition: fill var(--tw-fast) var(--tw-ease); }
+.tw-wheel-rim.is-hot { fill: var(--tw-aqua); filter: drop-shadow(0 0 2px rgba(var(--tw-aqua-rgb), 0.9)); }
+.tw-wheel-rim.is-off.is-hot { fill: var(--tw-coral); filter: none; }
 
 .tw-wheel-icons { position: absolute; inset: 0; pointer-events: none; }
 
 .tw-wheel-item {
 	position: absolute;
 	display: grid;
-	place-items: center;
-	width: calc(44 * var(--tw-u));
-	height: calc(44 * var(--tw-u));
-	transform: translate(-50%, -50%) scale(0.9);
+	justify-items: center;
+	gap: calc(3 * var(--tw-u));
+	width: calc(96 * var(--tw-u));
+	transform: translate(-50%, -50%) scale(0.92);
 	color: var(--tw-ink-2);
+	opacity: 0;
 	transition: transform var(--tw-fast) var(--tw-ease), color var(--tw-fast) var(--tw-ease), opacity var(--tw-fast);
 }
 
-.tw-wheel-item .tw-ico { width: 100%; height: 100%; }
-.tw-wheel-item.is-hot { color: var(--tw-ink); transform: translate(-50%, -50%) scale(1.12); }
-.tw-wheel-item.is-off { opacity: 0.32; }
+.tw-wheel.is-on .tw-wheel-item { opacity: 1; transition-delay: var(--d), var(--d), var(--d); }
+.tw-wheel-item .tw-ico { width: calc(34 * var(--tw-u)); height: calc(34 * var(--tw-u)); }
+.tw-wheel-item em {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font: 600 var(--tw-fs-xs) var(--tw-font);
+	font-style: normal;
+	letter-spacing: 0.02em;
+}
 
-/* the item in hand: a small sun-coloured dot under its icon */
-.tw-wheel-item > i {
+.tw-wheel-item b {
 	position: absolute;
-	bottom: calc(-8 * var(--tw-u));
+	top: calc(-6 * var(--tw-u));
+	right: calc(18 * var(--tw-u));
+	min-width: calc(15 * var(--tw-u));
+	padding: 0 calc(3 * var(--tw-u));
+	border-radius: calc(4 * var(--tw-u));
+	background: var(--tw-fill-2);
+	color: var(--tw-ink-2);
+	font: 600 var(--tw-fs-xs) var(--tw-mono);
+	line-height: calc(15 * var(--tw-u));
+	text-align: center;
+}
+
+.tw-wheel-item.is-hot { color: var(--tw-ink); transform: translate(-50%, -50%) scale(1.1); }
+.tw-wheel-item.is-hot b { background: var(--tw-aqua); color: #08141a; }
+.tw-wheel-item.is-off { color: var(--tw-ink-4); }
+.tw-wheel-item.is-off .tw-ico { opacity: 0.45; }
+
+/* the item in hand: a sun-coloured dot under its name */
+.tw-wheel-item > i {
 	width: calc(6 * var(--tw-u));
 	height: calc(6 * var(--tw-u));
 	border-radius: 50%;
@@ -2718,7 +2750,7 @@ body {
 	position: absolute;
 	left: 50%;
 	top: 50%;
-	width: 36%;
+	width: 40%;
 	transform: translate(-50%, -50%);
 	display: grid;
 	justify-items: center;
@@ -2728,8 +2760,20 @@ body {
 	font-family: var(--tw-font);
 }
 
-.tw-wheel-title { font-size: var(--tw-fs-xs); letter-spacing: 0.12em; text-transform: uppercase; color: var(--tw-ink-3); }
+.tw-wheel-title { font-size: var(--tw-fs-xs); letter-spacing: 0.14em; text-transform: uppercase; color: var(--tw-ink-3); }
+.tw-wheel-big { color: var(--tw-aqua); }
+.tw-wheel-big .tw-ico { width: calc(30 * var(--tw-u)); height: calc(30 * var(--tw-u)); }
 .tw-wheel-name { font-size: calc(17 * var(--tw-u)); font-weight: 600; line-height: 1.15; }
+.tw-wheel-state:empty { display: none; }
+.tw-wheel-state {
+	padding: 0 calc(7 * var(--tw-u));
+	border-radius: 999px;
+	font: 600 var(--tw-fs-xs) var(--tw-font);
+	line-height: calc(17 * var(--tw-u));
+}
+
+.tw-wheel-state.is-current { background: rgba(var(--tw-sun-rgb), 0.18); color: var(--tw-sun); }
+.tw-wheel-state.is-off { background: rgba(255, 122, 133, 0.16); color: var(--tw-coral); }
 .tw-wheel-hint { font-size: var(--tw-fs-xs); line-height: 1.35; color: var(--tw-ink-2); }
 
 .tw-wheel-cursor {
@@ -2744,15 +2788,20 @@ body {
 	pointer-events: none;
 }
 
-.tw-wheel-keys {
+.tw-wheel-keys,
+.tw-wheel-keys2 {
 	padding: var(--tw-1) var(--tw-3);
 	border-radius: 999px;
-	background: rgba(8, 14, 22, 0.6);
+	background: rgba(8, 14, 22, 0.62);
 	color: var(--tw-ink-2);
 	font: 500 var(--tw-fs-sm) var(--tw-font);
+	text-align: center;
 }
 
-.tw-wheel-keys kbd {
+.tw-wheel-keys2 { background: transparent; color: var(--tw-ink-3); font-size: var(--tw-fs-xs); padding-top: 0; }
+
+.tw-wheel-keys kbd,
+.tw-wheel-keys2 kbd {
 	display: inline-block;
 	min-width: calc(16 * var(--tw-u));
 	margin: 0 calc(3 * var(--tw-u));
@@ -2762,6 +2811,10 @@ body {
 	color: var(--tw-ink);
 	font: 600 var(--tw-fs-xs) var(--tw-mono);
 	text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tw-wheel-dial, .tw-wheel-item { transition: none; }
 }
 
 /* light HUD (Gameplay options): the frame-rate box, the brand / mode chip and the tip cards go */

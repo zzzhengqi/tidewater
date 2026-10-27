@@ -38,7 +38,6 @@ export default {
 	'keys.interact': "互动",
 	'keys.interactSub': "登船、掌舵、上岸、交谈",
 	'keys.equipment': "装备轮盘",
-	'keys.equipmentSub': "点按 R 打开，再按 R 切换，点击或 Enter 装备",
 	'keys.use': "使用手中的装备",
 	'keys.useSub': "鱼竿：按住抛竿、点击提竿、按住收线",
 	'keys.useAlt': "鱼竿：收回空线",
@@ -64,7 +63,6 @@ export default {
 	'help.replayGuide': "再次显示概览",
 
 	'wheel.equipment': "装备",
-	'wheel.controls': "<kbd>R</kbd> 下一项 · <kbd>点击</kbd>或 <kbd>Enter</kbd> 装备 · <kbd>Esc</kbd> 取消",
 	'wheel.equipped': "当前手持",
 	'wheel.unavailable': "此处不可用",
 	'wheel.busy': "现在不行：先完成手头的事",
@@ -398,6 +396,16 @@ export default {
 	'settings.folder.boat': "船",
 	'settings.towTheBoat': "把船拖回码头",
 	'settings.towTheBoatTip': "无论船在哪里（翻覆、搁浅、漂远），都把它扶正并送回泊位。船上的人会一起回来。",
+
+	'keys.equipmentSub': "点按 R 打开 · R / 滚轮 / 1–9 选择 · 点击或 Enter 装备 · 也可按住 R 指向后松开",
+
+	'wheel.controls': "<kbd>R</kbd> / 滚轮 下一项 · <kbd>1</kbd>–<kbd>9</kbd> 直接选 · <kbd>点击</kbd> / <kbd>Enter</kbd> 装备 · <kbd>Esc</kbd> 取消",
+	'wheel.controls2': "或按住 <kbd>R</kbd>，指向装备后松开 · <kbd>Shift</kbd>+<kbd>R</kbd> 上一项",
+	'wheel.unavailableHint': "现在不能使用",
+
+	'error.deviceLost': "图形设备丢失（{message}），请刷新页面继续。",
+	'error.gpu': "渲染出错：{message}",
+
 	'settings.tab.ocean': "海洋",
 	'settings.folder.seaState': "海况",
 	'settings.conditions': "海况预设",

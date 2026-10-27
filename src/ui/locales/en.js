@@ -38,7 +38,6 @@ export default {
 	'keys.interact': "Interact",
 	'keys.interactSub': "Board, helm, step ashore, talk",
 	'keys.equipment': "Equipment wheel",
-	'keys.equipmentSub': "Tap R, R again for the next item, click or Enter to take it",
 	'keys.use': "Use what you hold",
 	'keys.useSub': "Rod: hold to cast, click to strike, hold to reel",
 	'keys.useAlt': "Rod: reel in an empty line",
@@ -64,7 +63,6 @@ export default {
 	'help.replayGuide': "Show the overview again",
 
 	'wheel.equipment': "Equipment",
-	'wheel.controls': "<kbd>R</kbd> next · <kbd>Click</kbd> or <kbd>Enter</kbd> take it · <kbd>Esc</kbd> cancel",
 	'wheel.equipped': "In your hands now",
 	'wheel.unavailable': "Not available here",
 	'wheel.busy': "Not now: finish what you are doing first",
@@ -398,6 +396,16 @@ export default {
 	'settings.folder.boat': "Boat",
 	'settings.towTheBoat': "Tow the boat back to the pier",
 	'settings.towTheBoatTip': "Brings the boat back to her berth, upright, from wherever she is. Anyone aboard comes along.",
+
+	'keys.equipmentSub': "Tap R: open · R / scroll / 1–9: choose · Click or Enter: take · or hold R, point, let go",
+
+	'wheel.controls': "<kbd>R</kbd> / scroll next · <kbd>1</kbd>–<kbd>9</kbd> pick · <kbd>Click</kbd> / <kbd>Enter</kbd> take it · <kbd>Esc</kbd> cancel",
+	'wheel.controls2': "Or hold <kbd>R</kbd>, point at an item and let go · <kbd>Shift</kbd>+<kbd>R</kbd> goes back",
+	'wheel.unavailableHint': "It can't be used right now",
+
+	'error.deviceLost': "The graphics device was lost ({message}). Reload the page to continue.",
+	'error.gpu': "Graphics error: {message}",
+
 	'settings.tab.ocean': "Ocean",
 	'settings.folder.seaState': "Sea state",
 	'settings.conditions': "Conditions",

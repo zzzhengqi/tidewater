@@ -259,6 +259,11 @@ fn taauLockLuma( rgb: vec3f ) -> f32 {
 	return pow( max( p, 0.0 ), 1.0 / 6.0 );
 }
 
+// finite (not NaN, not inf), tested on the exponent bits: a compiler may fold x == x away
+fn taauFinite2( v: vec2f ) -> bool { return all( ( bitcast<vec2u>( v ) & vec2u( 0x7f800000u ) ) != vec2u( 0x7f800000u ) ); }
+fn taauFinite3( v: vec3f ) -> bool { return all( ( bitcast<vec3u>( v ) & vec3u( 0x7f800000u ) ) != vec3u( 0x7f800000u ) ); }
+fn taauFinite4( v: vec4f ) -> bool { return all( ( bitcast<vec4u>( v ) & vec4u( 0x7f800000u ) ) != vec4u( 0x7f800000u ) ); }
+
 // Catmull-Rom history lookup with 5 bilinear taps (the 4 corner taps are dropped)
 fn taauSampleHistory( uvIn: vec2f ) -> vec4f {
 	let size = vec2f( textureDimensions( taauHistory ) );
@@ -334,7 +339,10 @@ struct TaauOut { @location( 0 ) color: vec4f, @location( 1 ) lock: vec4f, @locat
 		}
 	}
 	let vs = vec2i( textureDimensions( taauVelocity ) );
-	let velocity = textureLoad( taauVelocity, clamp( closestPositionTexel, vec2i( 0 ), vs - 1 ), 0 ).xy;
+	// (a non-finite motion vector, e.g. from a NaN vertex anywhere in the frame, must not reach the
+	// history: NaN fails every comparison, so these selects turn it into "no motion")
+	let velocityRaw = textureLoad( taauVelocity, clamp( closestPositionTexel, vec2i( 0 ), vs - 1 ), 0 ).xy;
+	let velocity = select( vec2f( 0.0 ), velocityRaw, taauFinite2( velocityRaw ) && all( abs( velocityRaw ) < vec2f( 1e4 ) ) );
 	let historyUV = uv - velocity;
 	let hrVelocity = length( velocity * outSize ); // output pixels per frame
 	let isEdge = farthestDepth - closestDepth > taau.edgeDepthDiff;
@@ -353,7 +361,8 @@ struct TaauOut { @location( 0 ) color: vec4f, @location( 1 ) lock: vec4f, @locat
 	var inMotionLastFrame = false;
 	var blurPrev = 0.0;
 	if ( ! isNewSample ) {
-		historyColor = taauToYCoCg( min( taauSampleHistory( historyUV ).rgb * exposure, vec3f( 65504.0 ) ) );
+		let hc = taauSampleHistory( historyUV ).rgb;
+		historyColor = taauToYCoCg( min( select( vec3f( 0.0 ), hc, taauFinite3( hc ) ) * exposure, vec3f( 65504.0 ) ) );
 		let ls = textureSampleLevel( taauLock, smpLinearClamp, historyUV, 0.0 );
 		lockStatus = ls.xy;
 		temporalReactive = sat( abs( ls.z ) );
@@ -549,9 +558,13 @@ struct TaauOut { @location( 0 ) color: vec4f, @location( 1 ) lock: vec4f, @locat
 	if ( sat( hrVelocity * 10.0 ) >= 1.0 ) { newReactive = -max( TAAU_EPS, newReactive ); }
 
 	var out: TaauOut;
-	out.color = vec4f( max( outColor, vec3f( 0.0 ) ) / exposure, 1.0 );
-	out.lock = vec4f( lockStatus, newReactive, select( blurAcc * ( 1.0 - alphaOut ), 0.0, isNewSample ) );
-	out.lumaHistory = lumaHist;
+	// nothing non-finite is written into the history: a NaN pixel would otherwise stay (and spread
+	// through the resampling) forever, i.e. a frame that never recovers
+	let oc = max( outColor, vec3f( 0.0 ) ) / exposure;
+	out.color = vec4f( select( vec3f( 0.0 ), min( oc, vec3f( 65504.0 ) ), taauFinite3( oc ) ), 1.0 );
+	let ol = vec4f( lockStatus, newReactive, select( blurAcc * ( 1.0 - alphaOut ), 0.0, isNewSample ) );
+	out.lock = select( vec4f( 0.0, 0.0, 1.0, 0.0 ), ol, taauFinite4( ol ) );
+	out.lumaHistory = select( vec4f( 0.0 ), lumaHist, taauFinite4( lumaHist ) );
 DEBUG_OUTPUT
 	return out;
 }
