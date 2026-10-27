@@ -47,6 +47,11 @@ const _dq = new THREE.Quaternion();
 // turning circle, speed lost in turns, outward heel); running trim and rise with speed (the bow
 // lifts over the hump, then runs at a few degrees); prop walk astern. Grounding, pier piles and
 // mooring lines as before.
+//
+// Capsizing is left to the physics (a steep beam sea can roll her over). Once she has lain at more
+// than ~75 degrees for 1.5 s she counts as capsized (onCapsize fires); rightBoat() then turns her back
+// upright over ~2.4 s (E beside her in the water), and tow() brings her back to the berth from anywhere
+// (the settings panel).
 export class BoatController {
 
 	constructor( { model, query, terrain, colliders } ) {
@@ -124,6 +129,11 @@ export class BoatController {
 
 		this.bowWorld = new THREE.Vector3();
 		this.sternWorld = new THREE.Vector3();
+
+		this.capsized = false;
+		this.onCapsize = null;
+		this.righting = null; // { t, dur, from, to } while being turned back upright
+		this._overT = 0;
 
 		this.apply();
 
@@ -221,6 +231,26 @@ export class BoatController {
 		this.readQueries();
 		if ( ! this.hasWater ) {
 
+			this.apply();
+			return;
+
+		}
+
+		// capsized: heeled past ~75 degrees (up vector below 0.26) for 1.5 s; upright again above ~30 degrees
+		const upY = _up.set( 0, 1, 0 ).applyQuaternion( this.quaternion ).y;
+		this._overT = upY < 0.26 ? this._overT + Math.min( dt, 0.1 ) : 0;
+		if ( ! this.capsized && this._overT > 1.5 ) {
+
+			this.capsized = true;
+			this.driven = false;
+			this.throttle = 0;
+			if ( this.onCapsize ) this.onCapsize();
+
+		} else if ( this.capsized && upY > 0.85 ) this.capsized = false;
+
+		if ( this.righting ) {
+
+			this.stepRighting( Math.min( dt, 0.1 ) );
 			this.apply();
 			return;
 
@@ -435,8 +465,57 @@ export class BoatController {
 
 	}
 
+	// turn her back upright, keeping her heading (E next to the capsized boat). Returns false if already at it.
+	rightBoat( duration = 2.4 ) {
+
+		if ( this.righting ) return false;
+		const f = this.forward( _g );
+		const yaw = Math.abs( f.y ) > 0.98 ? 0 : Math.atan2( f.x, f.z ); // (bow straight up / down: any heading)
+		this.righting = { t: 0, dur: duration, from: this.quaternion.clone(), to: new THREE.Quaternion().setFromAxisAngle( new THREE.Vector3( 0, 1, 0 ), yaw ) };
+		this.driven = false;
+		this.throttle = 0;
+		this.rpm = 0;
+		return true;
+
+	}
+
+	stepRighting( dt ) {
+
+		const R = this.righting;
+		R.t += dt;
+		const k = sstep( R.t / R.dur, 0, 1 );
+		this.quaternion.slerpQuaternions( R.from, R.to, k );
+		// float up to the mean water level under her (the origin sits at the design waterline)
+		let h = 0;
+		for ( let i = 0; i < this.waterH.length; i ++ ) h += this.waterH[ i ];
+		h /= Math.max( this.waterH.length, 1 );
+		this.position.y += ( h - this.position.y ) * ( 1 - Math.exp( - dt * 3 ) );
+		this.velocity.multiplyScalar( Math.exp( - dt * 3 ) );
+		this.angular.set( 0, 0, 0 );
+		if ( R.t >= R.dur ) {
+
+			this.righting = null;
+			this.capsized = false;
+			this._overT = 0;
+			this.velocity.set( 0, 0, 0 );
+
+		}
+
+	}
+
+	// back to the berth, upright and at rest, from wherever she is (settings: "Tow the boat back to the pier")
+	tow() {
+
+		this.reset();
+
+	}
+
 	// back to the berth, at rest (safety net if the integration ever blows up)
 	reset() {
+
+		this.capsized = false;
+		this.righting = null;
+		this._overT = 0;
 
 		this.position.copy( WORLD.boatDock.position );
 		this.quaternion.setFromAxisAngle( new THREE.Vector3( 0, 1, 0 ), WORLD.boatDock.heading );

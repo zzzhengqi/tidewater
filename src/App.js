@@ -58,6 +58,7 @@ import { FlyCamera } from './player/FlyCamera.js';
 import { Player } from './player/Player.js';
 import { Game } from './game/Game.js';
 import { Equipment } from './core/Equipment.js';
+import { Surfing } from './surf/Surfing.js';
 import { pressed } from './core/Keymap.js';
 import { STAND } from './game/FishStand.js';
 import { CHANDLERY } from './game/Chandlery.js';
@@ -293,6 +294,11 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 		this.airMotes = new AirMotes( { terrain: this.terrainGPU, clouds: this.clouds, csm: this.csm, reversedDepth: true } );
 		scene.add( this.airMotes.mesh );
 		this.boatCtl = new BoatController( { model: this.boat, query: this.query, terrain: this.terrainData, colliders: this.colliders } );
+		this.boatCtl.onCapsize = () => {
+
+			if ( this.ui ) this.ui.ui.toast( 'The boat capsized: swim up to her and press E to right her', 6000 );
+
+		};
 		this.boatSpray = new BoatSpray( { boat: this.boatCtl, spray: this.spray } );
 		// humpback cruising the deep water around the island (model fetched from public/models/whale)
 		this.whale = new Whale( { scene, terrain: this.terrainData, query: this.query, spray: this.spray } );
@@ -345,6 +351,8 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 		this.player.audio = this.audio;
 		// the fishing game (rod, bites, catch, cooler, fish stand)
 		this.game = new Game( this );
+		// surfing (the surfboard on the equipment wheel; the 'surfing' gameplay option)
+		this.surf = new Surfing( this );
 		// the lanterns at Joe's fish stand and Marta's chandlery (lit from dusk like the village lamps);
 		// positions are in each stall's frame (x right, z toward the customer), turned by its yaw
 		for ( const [ s, lx, ly, lz ] of [ [ STAND, - 0.9, 1.85, 0.1 ], [ CHANDLERY, - 0.75, 1.58, - 1.45 ] ] ) {
@@ -481,6 +489,15 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 	}
 
 	// T: let the day run (about 8 minutes per day) or stop it
+	// settings > Gameplay > Boat: back to the berth, upright, from anywhere (stuck, capsized, far out).
+	// Anyone aboard comes along; a swimmer stays where they are.
+	towBoat() {
+
+		this.boatCtl.tow();
+		if ( this.ui ) this.ui.ui.toast( 'The boat is back at the pier' );
+
+	}
+
 	toggleTime() {
 
 		const s = this.settings;
@@ -516,8 +533,9 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 			this.fly.setPose( this.camera.position.clone(), e.y, e.x );
 			this.fly.velocity.set( 0, 0, 0 );
 
-		} else if ( this.player.mode !== 'boat' && this.player.mode !== 'deck' ) {
+		} else if ( this.player.mode !== 'boat' && this.player.mode !== 'deck' && this.player.mode !== 'surf' ) {
 
+			// (aboard or surfing the view simply goes back to the boat / board)
 			this.dropPlayerAtCamera();
 
 		}
@@ -630,6 +648,9 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 		this.wake.update( dt );
 		if ( this.freeCam ) this.fly.update( dt );
 		else this.player.update( dt );
+		// the board / ride (after the player: it may hand the player over); under the free camera the
+		// ride goes on without input
+		this.surf.update( dt, this.freeCam );
 		this.game.update( dt );
 		this.updateSun();
 

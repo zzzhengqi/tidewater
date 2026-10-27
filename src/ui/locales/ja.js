@@ -358,6 +358,46 @@ export default {
 	'tip.joe': "<b>ジョー</b>が魚を買い取ります。<kbd>E</kbd> で買取額を確認。",
 	'tip.marta': "<b>マルタ</b>はアップグレードとディーゼルを売っています。<kbd>E</kbd> で品ぞろえを見よう。",
 
+	'keys.upSub': "サーフィン：テイクオフ、飛び降りる",
+
+	'equip.surfboard': "サーフボード",
+	'equip.surfboardHint': "水に入ると腹ばいでパドル：WASD で方向、Shift で強く、スペースでテイクオフ",
+	'equip.surfboardUnavailable': "ボートの上では使えません",
+
+	'options.surfing': "サーフィン",
+	'options.surfingTip': "装備ホイールのサーフボード。オフにするとホイールに出てきません。",
+	'options.surfHud': "ライド記録",
+	'options.surfHudTip': "サーフィン中に今回のライドの時間と距離を表示します。",
+
+	'settings.preset.groundswell': "サーフ日和",
+
+	'mode.paddling': "パドリング",
+	'mode.surfing': "波乗り中",
+
+	'prompt.paddle': "テイクオフ   ·   W A S D  パドル   ·   Shift  強く",
+	'prompt.ride': "飛び降りる   ·   A D  ターン   ·   W  加速   ·   S  減速",
+	'prompt.rightBoat': "ボートを起こす",
+
+	'surf.caught': "立った！ 波に乗っています",
+	'surf.tooSlow': "遅すぎて波が下を抜けていきました。持ち上げられたら Shift で強くパドル。",
+	'surf.wrongDir': "ボードの先を浜に向けないと波に乗れません。",
+	'surf.noWave': "ここには乗れる波がありません。セットを待って、崩れかけたピークの前でパドルしよう。",
+	'surf.whitewater': "それは白波です。崩れる直前の波に乗ろう。",
+	'surf.wipeWhitewater': "白波に巻かれてワイプアウト。",
+	'surf.wipeRocks': "リーフにぶつかった！",
+	'surf.waveFaded': "波が消えてしまいました。",
+	'surf.jumpedOff': "ボードから飛び降りました。",
+	'surf.rideEnd': "浅瀬まで乗り切りました。",
+	'surf.hud': "ライド {time} · {dist}",
+
+	'unit.s': "{v} 秒",
+
+	'toast.capsized': "ボートが転覆しました。そばまで泳いで E で起こせます",
+	'toast.boatTowed': "ボートを桟橋まで曳航しました",
+
+	'settings.folder.boat': "ボート",
+	'settings.towTheBoat': "ボートを桟橋まで曳航",
+	'settings.towTheBoatTip': "どこにいても（転覆、座礁、漂流）ボートを起こして係留場所に戻します。乗っている人も一緒です。",
 	'settings.tab.ocean': "海洋",
 	'settings.folder.seaState': "海況",
 	'settings.conditions': "海況プリセット",

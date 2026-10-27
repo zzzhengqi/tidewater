@@ -358,6 +358,46 @@ export default {
 	'tip.joe': "<b>جو</b> يشتري سمكك. اضغط <kbd>E</kbd> لترى كم سيدفع.",
 	'tip.marta': "<b>مارتا</b> تبيع التحسينات والديزل. اضغط <kbd>E</kbd> لترى بضاعتها.",
 
+	'keys.upSub': "ركوب الأمواج: اركب الموجة، اقفز",
+
+	'equip.surfboard': "لوح ركوب الأمواج",
+	'equip.surfboardHint': "في الماء تستلقي عليه وتجدّف: WASD للاتجاه، Shift أقوى، المسافة لركوب الموجة",
+	'equip.surfboardUnavailable': "غير متاح على القارب",
+
+	'options.surfing': "ركوب الأمواج",
+	'options.surfingTip': "لوح الأمواج في عجلة المعدّات. عند الإيقاف لا يظهر في العجلة.",
+	'options.surfHud': "بيانات الركوب",
+	'options.surfHudTip': "يعرض مدة الركوب الحالي ومسافته أثناء ركوب الأمواج.",
+
+	'settings.preset.groundswell': "موج للركوب",
+
+	'mode.paddling': "تجديف",
+	'mode.surfing': "على الموجة",
+
+	'prompt.paddle': "اركب الموجة   ·   W A S D  جدّف   ·   Shift  أقوى",
+	'prompt.ride': "اقفز   ·   A D  انعطف   ·   W  تسارع   ·   S  أبطئ",
+	'prompt.rightBoat': "اعدل القارب",
+
+	'surf.caught': "وقفت! أنت تركب الموجة",
+	'surf.tooSlow': "بطيء جدًا: مرّت الموجة من تحتك. جدّف بقوة (Shift) حين ترفعك.",
+	'surf.wrongDir': "وجّه مقدمة اللوح نحو الشاطئ لتلحق بالموجة.",
+	'surf.noWave': "لا موجة هنا: انتظر مجموعة أمواج وجدّف أمام القمة التي بدأت تنكسر.",
+	'surf.whitewater': "هذه رغوة بيضاء: الحق بالموجة قبيل انكسارها.",
+	'surf.wipeWhitewater': "جرفتك الرغوة البيضاء فسقطت.",
+	'surf.wipeRocks': "اصطدمت بالشعاب!",
+	'surf.waveFaded': "تلاشت الموجة.",
+	'surf.jumpedOff': "قفزت عن اللوح.",
+	'surf.rideEnd': "وصلت إلى المياه الضحلة: انتهى الركوب.",
+	'surf.hud': "الركوب {time} · {dist}",
+
+	'unit.s': "{v} ث",
+
+	'toast.capsized': "انقلب القارب: اسبح إليه واضغط E لتعديله",
+	'toast.boatTowed': "عاد القارب إلى الرصيف",
+
+	'settings.folder.boat': "القارب",
+	'settings.towTheBoat': "اسحب القارب إلى الرصيف",
+	'settings.towTheBoatTip': "يعيد القارب معتدلًا إلى مرساه أينما كان (منقلبًا أو جانحًا أو بعيدًا). من على متنه يعود معه.",
 	'settings.tab.ocean': "المحيط",
 	'settings.folder.seaState': "حالة البحر",
 	'settings.conditions': "حالات البحر",

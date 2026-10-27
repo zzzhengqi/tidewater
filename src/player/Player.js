@@ -32,6 +32,7 @@ const HELM_REACH = 0.75; // m from the helm seat to take the wheel
 //   deck : aboard, walking in the boat's frame (it moves and rocks under you); E at the helm
 //          takes the wheel, E near a pier / the beach steps ashore
 //   boat : at the helm, driving; V toggles helm (1st person) / chase (3rd person) camera, E stands up
+//   surf : on the surfboard (paddling or riding), driven by surf/Surfing.js
 export class Player {
 
 	constructor( { camera, input, terrain, colliders, query, boat, reef = null, audio = null } ) {
@@ -139,6 +140,12 @@ export class Player {
 		this.waterMean = this.waterMean === null ? this.waterH : this.waterMean + ( this.waterH - this.waterMean ) * ( 1 - Math.exp( - dt / 4 ) );
 		this.prompt = null;
 
+		// the boat capsized under you: into the water beside her (swim up to her: E rights her)
+		if ( ( this.mode === 'boat' || this.mode === 'deck' ) && this.boat.capsized ) this.exitBoat( null, 1 );
+
+		// on the surfboard (prone or standing): surf/Surfing.js moves the player and the camera
+		if ( this.mode === 'surf' ) return;
+
 		if ( this.mode === 'boat' ) {
 
 			this.updateBoat( dt );
@@ -158,7 +165,19 @@ export class Player {
 		this.pitch = THREE.MathUtils.clamp( this.pitch - look.y * 0.0022, - 1.5, 1.5 );
 
 		// (not with a line out or a fish in hand: E belongs to the fishing then)
-		if ( this.nearBoat() && ! this.busy ) {
+		const b = this.boat;
+		if ( b && ( b.capsized || b.righting ) ) {
+
+			// capsized: E beside her turns her back upright (no boarding until she is)
+			const near = Math.hypot( b.position.x - this.position.x, b.position.z - this.position.z ) < 6.5;
+			if ( near && ! b.righting && ! this.busy ) {
+
+				this.prompt = { key: 'E', text: 'Right the boat' };
+				if ( inp.hit( 'KeyE' ) ) b.rightBoat();
+
+			}
+
+		} else if ( this.nearBoat() && ! this.busy ) {
 
 			this.prompt = { key: 'E', text: 'Board boat' };
 			if ( inp.hit( 'KeyE' ) ) {

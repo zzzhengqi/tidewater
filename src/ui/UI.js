@@ -157,6 +157,7 @@ const TEXT_ATTRS = [ 'aria-label', 'aria-valuetext', 'data-tip', 'data-tip-hint'
 function modeIcon( label ) {
 
 	const s = String( label || '' ).toLowerCase();
+	if ( s.includes( 'surf' ) || s.includes( 'paddl' ) || s.includes( 'wave' ) ) return 'surfboard';
 	if ( s.includes( 'boat' ) ) return 'boat';
 	if ( s.includes( 'div' ) ) return 'dive';
 	if ( s.includes( 'swim' ) ) return 'swim';

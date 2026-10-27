@@ -2768,3 +2768,20 @@ body {
 .tw-root.is-light-hud .tw-tl,
 .tw-root.is-light-hud .gm-coach { display: none; }
 .tw-root.is-no-map .gm-map { display: none; }
+
+/* surfing: ride time and distance (gameplay option, off by default) */
+.tw-surf-hud {
+	position: absolute;
+	left: 50%;
+	top: calc(var(--tw-edge) + 52 * var(--tw-u));
+	transform: translateX(-50%);
+	padding: var(--tw-1) var(--tw-4);
+	border-radius: 999px;
+	color: var(--tw-ink);
+	font: 600 var(--tw-fs-lg) var(--tw-mono);
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity var(--tw-med) var(--tw-ease);
+}
+
+.tw-surf-hud.is-on { opacity: 1; }

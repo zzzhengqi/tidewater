@@ -110,9 +110,11 @@ ok( `every key the code reads is registered (${ registered.size } codes, letters
 	assert.deepEqual( heard, [ 'fishing=false' ], 'one event per change' );
 	assert.equal( JSON.parse( store.get( 'tidewater.options' ) ).fishing, false );
 	off();
-	Options.define( { id: 'surfing', label: 'options.surfing', value: false } );
-	assert.ok( Options.list().some( ( o ) => o.id === 'surfing' ), 'new options join the list (the settings group is built from it)' );
-	assert.throws( () => Options.define( { id: 'surfing', label: 'x' } ) );
+	assert.equal( Options.get( 'surfing' ), true, 'surfing is on by default' );
+	assert.equal( Options.get( 'surfHud' ), false, 'the surf ride stats are off by default' );
+	Options.define( { id: 'kayaking', label: 'options.kayaking', value: false } );
+	assert.ok( Options.list().some( ( o ) => o.id === 'kayaking' ), 'new options join the list (the settings group is built from it)' );
+	assert.throws( () => Options.define( { id: 'kayaking', label: 'x' } ) );
 	ok( 'gameplay options: defaults, saved values, change events, open for new switches' );
 
 }
