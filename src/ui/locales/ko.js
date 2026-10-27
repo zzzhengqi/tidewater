@@ -43,7 +43,6 @@ export default {
 	'keys.useAlt': "낚싯대: 빈 줄 감기",
 	'keys.cooler': "아이스박스와 물고기 도감",
 	'keys.boatCamera': "보트 카메라",
-	'keys.boatCameraSub': "조타 중 1인칭 / 3인칭",
 	'keys.freeCamera': "자유 카메라",
 	'keys.freeCameraSub': "어디든 비행, 다시 F로 걷기",
 	'keys.time': "시간 멈춤 / 재개",
@@ -405,6 +404,11 @@ export default {
 
 	'error.deviceLost': "그래픽 장치를 잃었습니다({message}). 페이지를 새로 고치세요.",
 	'error.gpu': "렌더링 오류: {message}",
+
+	'keys.boatCameraSub': "1인칭 / 3인칭 (조타 중, 서핑 중)",
+
+	'surf.viewFirst': "1인칭 시점",
+	'surf.viewChase': "추적 시점",
 
 	'settings.tab.ocean': "해양",
 	'settings.folder.seaState': "해상 상태",

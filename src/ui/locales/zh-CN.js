@@ -43,7 +43,6 @@ export default {
 	'keys.useAlt': "鱼竿：收回空线",
 	'keys.cooler': "冷藏箱和鱼类图鉴",
 	'keys.boatCamera': "船上视角",
-	'keys.boatCameraSub': "掌舵时切换第一 / 第三人称",
 	'keys.freeCamera': "自由相机",
 	'keys.freeCameraSub': "自由飞行，再按 F 回到步行",
 	'keys.time': "暂停 / 恢复时间流动",
@@ -405,6 +404,11 @@ export default {
 
 	'error.deviceLost': "图形设备丢失（{message}），请刷新页面继续。",
 	'error.gpu': "渲染出错：{message}",
+
+	'keys.boatCameraSub': "第一 / 第三人称（掌舵时、冲浪时）",
+
+	'surf.viewFirst': "第一人称视角",
+	'surf.viewChase': "跟随视角",
 
 	'settings.tab.ocean': "海洋",
 	'settings.folder.seaState': "海况",

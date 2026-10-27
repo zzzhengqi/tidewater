@@ -43,7 +43,6 @@ export default {
 	'keys.useAlt': "竿：空の糸を巻き取る",
 	'keys.cooler': "クーラーボックスと魚図鑑",
 	'keys.boatCamera': "ボートカメラ",
-	'keys.boatCameraSub': "操舵中に一人称 / 三人称",
 	'keys.freeCamera': "フリーカメラ",
 	'keys.freeCameraSub': "どこへでも飛べる、もう一度 F で歩行へ",
 	'keys.time': "時間の停止 / 再開",
@@ -405,6 +404,11 @@ export default {
 
 	'error.deviceLost': "グラフィックスデバイスが失われました（{message}）。ページを再読み込みしてください。",
 	'error.gpu': "描画エラー：{message}",
+
+	'keys.boatCameraSub': "一人称 / 三人称（操舵中・サーフィン中）",
+
+	'surf.viewFirst': "一人称視点",
+	'surf.viewChase': "追従視点",
 
 	'settings.tab.ocean': "海洋",
 	'settings.folder.seaState': "海況",

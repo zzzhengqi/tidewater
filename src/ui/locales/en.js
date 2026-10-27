@@ -43,7 +43,6 @@ export default {
 	'keys.useAlt': "Rod: reel in an empty line",
 	'keys.cooler': "Cooler and fish log",
 	'keys.boatCamera': "Boat camera",
-	'keys.boatCameraSub': "1st / 3rd person, at the helm",
 	'keys.freeCamera': "Free camera",
 	'keys.freeCameraSub': "Fly anywhere; F again to walk",
 	'keys.time': "Pause / run time",
@@ -405,6 +404,11 @@ export default {
 
 	'error.deviceLost': "The graphics device was lost ({message}). Reload the page to continue.",
 	'error.gpu': "Graphics error: {message}",
+
+	'keys.boatCameraSub': "1st / 3rd person, at the helm and on the surfboard",
+
+	'surf.viewFirst': "First-person view",
+	'surf.viewChase': "Chase view",
 
 	'settings.tab.ocean': "Ocean",
 	'settings.folder.seaState': "Sea state",
