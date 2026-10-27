@@ -425,7 +425,10 @@ fn main( @builtin( local_invocation_id ) lid: vec3u ) {
 		if ( idx < n ) {
 			let x = idx % size.x; let y = idx / size.x;
 			let c = textureLoad( aeTex, vec2i( i32( x ), i32( y ) ), 0 ).rgb;
-			let l = log2( max( luminance( c ), 1e-4 ) );
+			let lum = luminance( c );
+			// (a NaN / inf pixel must not poison the average: it would freeze the exposure for good)
+			let finite = ( bitcast<u32>( lum ) & 0x7f800000u ) != 0x7f800000u; // (exponent bits: x == x may be folded)
+			let l = log2( clamp( select( 1e-4, lum, finite ), 1e-4, 6e4 ) );
 			let uvc = vec2f( ( f32( x ) + 0.5 ) / f32( size.x ), ( f32( y ) + 0.5 ) / f32( size.y ) ) - 0.5;
 			let w = max( 1.0 - length( uvc * vec2f( 1.0, 1.4 ) ) * 1.2, 0.15 );
 			accL += l * w;
@@ -446,8 +449,10 @@ ${ reduce }
 		let cur = aeExposure[ 0 ];
 		let rate = select( ae.down, ae.up, tgt > cur );
 		let k = 1.0 - exp( - frame.dt * rate );
-		let next = exp2( mix( log2( max( cur, 1e-3 ) ), log2( tgt ), k ) );
-		aeExposure[ 0 ] = select( 1.0, next, ae.enabled > 0.5 );
+		let curOk = ( bitcast<u32>( cur ) & 0x7f800000u ) != 0x7f800000u && cur < 1e6;
+		let next = exp2( mix( log2( max( select( 1.0, cur, curOk ), 1e-3 ) ), log2( tgt ), k ) );
+		let ok = ( bitcast<u32>( next ) & 0x7f800000u ) != 0x7f800000u && next > 0.0 && next < 1e6;
+		aeExposure[ 0 ] = select( 1.0, select( 1.0, next, ok ), ae.enabled > 0.5 );
 	}
 }
 `,

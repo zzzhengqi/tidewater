@@ -38,7 +38,6 @@ export default {
 	'keys.interact': "インタラクト",
 	'keys.interactSub': "乗船、操舵、上陸、話す",
 	'keys.equipment': "装備ホイール",
-	'keys.equipmentSub': "R で開き、もう一度 R で次へ、クリックか Enter で装備",
 	'keys.use': "手に持った物を使う",
 	'keys.useSub': "竿：長押しで投げる、クリックで合わせ、長押しで巻く",
 	'keys.useAlt': "竿：空の糸を巻き取る",
@@ -64,7 +63,6 @@ export default {
 	'help.replayGuide': "概要をもう一度見る",
 
 	'wheel.equipment': "装備",
-	'wheel.controls': "<kbd>R</kbd> 次へ · <kbd>クリック</kbd>か <kbd>Enter</kbd> で装備 · <kbd>Esc</kbd> キャンセル",
 	'wheel.equipped': "今持っている",
 	'wheel.unavailable': "ここでは使えません",
 	'wheel.busy': "今は無理：先に今のことを済ませて",
@@ -398,6 +396,16 @@ export default {
 	'settings.folder.boat': "ボート",
 	'settings.towTheBoat': "ボートを桟橋まで曳航",
 	'settings.towTheBoatTip': "どこにいても（転覆、座礁、漂流）ボートを起こして係留場所に戻します。乗っている人も一緒です。",
+
+	'keys.equipmentSub': "R で開く · R / ホイール / 1–9 で選ぶ · クリックか Enter で装備 · R を押したまま指して離しても可",
+
+	'wheel.controls': "<kbd>R</kbd> / ホイール 次へ · <kbd>1</kbd>–<kbd>9</kbd> 直接選ぶ · <kbd>クリック</kbd> / <kbd>Enter</kbd> 装備 · <kbd>Esc</kbd> キャンセル",
+	'wheel.controls2': "または <kbd>R</kbd> を押したまま項目を指して離す · <kbd>Shift</kbd>+<kbd>R</kbd> で前へ",
+	'wheel.unavailableHint': "今は使えません",
+
+	'error.deviceLost': "グラフィックスデバイスが失われました（{message}）。ページを再読み込みしてください。",
+	'error.gpu': "描画エラー：{message}",
+
 	'settings.tab.ocean': "海洋",
 	'settings.folder.seaState': "海況",
 	'settings.conditions': "海況プリセット",

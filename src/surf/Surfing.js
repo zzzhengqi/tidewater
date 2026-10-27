@@ -230,6 +230,7 @@ export class Surfing {
 		this.state = 'carry';
 		this.group.visible = true;
 		this.prone.visible = this.stand.visible = false;
+		this.boardMesh.castShadow = false; // (under the arm, right by the camera: no shadow until on the water)
 
 	}
 
@@ -346,6 +347,7 @@ export class Surfing {
 		this.camYawOff = 0;
 		this.prone.visible = true;
 		this.stand.visible = false;
+		this.boardMesh.castShadow = true;
 
 	}
 
