@@ -405,10 +405,7 @@ export default {
 	'error.deviceLost': "グラフィックスデバイスが失われました（{message}）。ページを再読み込みしてください。",
 	'error.gpu': "描画エラー：{message}",
 
-	'keys.boatCameraSub': "一人称 / 三人称（操舵中・サーフィン中）",
-
-	'surf.viewFirst': "一人称視点",
-	'surf.viewChase': "追従視点",
+	'keys.boatCameraSub': "操舵中に一人称 / 三人称",
 
 	'settings.tab.ocean': "海洋",
 	'settings.folder.seaState': "海況",

@@ -37,6 +37,7 @@ for ( const [ code ] of languages ) {
 	for ( const [ k, v ] of Object.entries( loc ) ) {
 
 		if ( typeof v !== 'string' || ! v.trim() ) errors.push( `${ code }: empty translation for "${ k }"` );
+		else if ( /[\r\n\t]|^\s|\s$/.test( v ) ) errors.push( `${ code }: "${ k }" has stray whitespace (line break, tab, or leading / trailing space)` );
 		else if ( k in en && placeholders( v ) !== placeholders( en[ k ] ) ) errors.push( `${ code }: "${ k }" uses {${ placeholders( v ) }}, English uses {${ placeholders( en[ k ] ) }}` );
 
 	}

@@ -405,10 +405,7 @@ export default {
 	'error.deviceLost': "图形设备丢失（{message}），请刷新页面继续。",
 	'error.gpu': "渲染出错：{message}",
 
-	'keys.boatCameraSub': "第一 / 第三人称（掌舵时、冲浪时）",
-
-	'surf.viewFirst': "第一人称视角",
-	'surf.viewChase': "跟随视角",
+	'keys.boatCameraSub': "掌舵时切换第一 / 第三人称",
 
 	'settings.tab.ocean': "海洋",
 	'settings.folder.seaState': "海况",

@@ -405,10 +405,7 @@ export default {
 	'error.deviceLost': "그래픽 장치를 잃었습니다({message}). 페이지를 새로 고치세요.",
 	'error.gpu': "렌더링 오류: {message}",
 
-	'keys.boatCameraSub': "1인칭 / 3인칭 (조타 중, 서핑 중)",
-
-	'surf.viewFirst': "1인칭 시점",
-	'surf.viewChase': "추적 시점",
+	'keys.boatCameraSub': "조타 중 1인칭 / 3인칭",
 
 	'settings.tab.ocean': "해양",
 	'settings.folder.seaState': "해상 상태",

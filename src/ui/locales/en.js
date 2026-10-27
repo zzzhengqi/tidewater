@@ -405,10 +405,7 @@ export default {
 	'error.deviceLost': "The graphics device was lost ({message}). Reload the page to continue.",
 	'error.gpu': "Graphics error: {message}",
 
-	'keys.boatCameraSub': "1st / 3rd person, at the helm and on the surfboard",
-
-	'surf.viewFirst': "First-person view",
-	'surf.viewChase': "Chase view",
+	'keys.boatCameraSub': "1st / 3rd person, at the helm",
 
 	'settings.tab.ocean': "Ocean",
 	'settings.folder.seaState': "Sea state",
