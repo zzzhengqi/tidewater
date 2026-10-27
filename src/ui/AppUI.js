@@ -267,13 +267,49 @@ export class AppUI {
 		post.addSlider( { label: 'Film grain', object: s, key: 'grain', min: 0, max: 0.06, step: 0.001, onChange: ( v ) => { P.grain.value = v; } } );
 
 		// ---------------------------------------------------------------- Performance
+		const Q = app.quality;
 		const perf = ui.addTab( 'performance', 'Performance', 'performance' );
 		const live = perf.addFolder( 'Live', { icon: 'gauge' } );
 		live.addInfo( { label: 'Frame rate', get: () => `${ ( app.fps || 0 ).toFixed( 0 ) } fps` } );
 		live.addInfo( { label: 'CPU per frame', get: () => `${ ( app.cpuMs || 0 ).toFixed( 2 ) } ms` } );
 		live.addInfo( { label: 'Render size', get: () => `${ app.sceneRenderer.width } × ${ app.sceneRenderer.height }` } );
+		live.addInfo( { label: 'GPU per frame', get: () => Q.gpuMs === null ? '—' : `${ Q.gpuMs.toFixed( 1 ) } ms` } );
 		const quality = perf.addFolder( 'Quality', { icon: 'layers' } );
-		quality.addSlider( { label: 'Render scale', object: s, key: 'renderScale', min: 0.5, max: 1, step: 0.05, format: ( v ) => `${ Math.round( v * 100 ) }%`, tooltip: 'Internal resolution; the temporal upscaler reconstructs the full output resolution.', onChange: ( v ) => app.setRenderScale( v ) } );
+		// presets and adaptive resolution (core/Quality.js, saved); a hand-made change below makes it 'custom'
+		s.preset = Q.preset;
+		s.adaptive = Q.adaptive;
+		s.target = Q.target;
+		s.shadows = Q.s.shadows;
+		const syncQuality = () => {
+
+			s.preset = Q.preset;
+			s.adaptive = Q.adaptive;
+			s.renderScale = app.post.scale;
+			s.shadows = Q.s.shadows;
+			s.ssr = Q.s.ssr;
+			quality.refresh();
+
+		};
+
+		quality.addSelect( { label: 'Graphics preset', object: s, key: 'preset', tooltip: 'Low: lower internal resolution, no shadows or water reflections. Medium: no water reflections. High: the full look. Ultra: draws at your screen\'s real pixel density (sharpest on high-DPI screens, the most GPU work).', options: [ { label: 'Low', value: 'low' }, { label: 'Medium', value: 'medium' }, { label: 'High', value: 'high' }, { label: 'Ultra', value: 'ultra' }, { label: 'Custom', value: 'custom' } ], onChange: ( v ) => {
+
+			if ( v !== 'custom' ) Q.setPreset( v );
+			syncQuality();
+
+		} } );
+		quality.addToggle( { label: 'Adaptive resolution', object: s, key: 'adaptive', tooltip: 'Lowers the internal resolution when the GPU can\'t keep up with the target frame rate, and raises it again when there is room (never above the preset\'s).', onChange: ( v ) => {
+
+			Q.setAdaptive( v );
+			syncQuality();
+
+		} } );
+		quality.addSelect( { label: 'Target frame rate', object: s, key: 'target', options: [ 30, 60, 120 ].map( ( f ) => ( { label: `${ f } fps`, value: f } ) ), onChange: ( v ) => Q.setTarget( Number( v ) ) } );
+		quality.addSlider( { label: 'Render scale', object: s, key: 'renderScale', min: 0.5, max: 1, step: 0.05, format: ( v ) => `${ Math.round( v * 100 ) }%`, tooltip: 'Internal resolution; the temporal upscaler reconstructs the full output resolution.', onChange: ( v ) => {
+
+			Q.setCustom( 'scale', v );
+			syncQuality();
+
+		} } );
 		// anti-aliasing: the TAA with 2..16 jitter positions averaged per pixel, or none
 		s.aa = app.post.aaMode === 'none' ? 0 : app.post.taau.jitterPhaseOverride;
 		quality.addSelect( { label: 'Anti-aliasing', object: s, key: 'aa', tooltip: 'Temporal anti-aliasing: each pixel averages this many sub-pixel sample positions over successive frames (it also smooths dithered fades and shadow noise). More samples cost nothing per frame but take a few more frames to settle.', options: [ { label: 'Off', value: 0 }, { label: '2x', value: 2 }, { label: '4x', value: 4 }, { label: '8x', value: 8 }, { label: '16x', value: 16 } ], onChange: ( v ) => {
@@ -283,9 +319,23 @@ export class AppUI {
 			if ( n > 0 ) app.post.taau.jitterPhaseOverride = n;
 
 		} } );
-		quality.addToggle( { label: 'Shadows', object: s, key: 'shadows', onChange: ( v ) => { app.shadows.enabled = v; } } );
-		s.ssr = true;
-		quality.addToggle( { label: 'Water reflections', object: s, key: 'ssr', tooltip: 'Screen-space reflections of the pier, boats and hills on the water.', onChange: ( v ) => { app.waterMaterial.params.ssr.value = v ? 1 : 0; } } );
+		quality.addToggle( { label: 'Shadows', object: s, key: 'shadows', onChange: ( v ) => {
+
+			app.shadows.enabled = v;
+			Q.setCustom( 'shadows', v );
+			syncQuality();
+
+		} } );
+		s.ssr = Q.s.ssr;
+		quality.addToggle( { label: 'Water reflections', object: s, key: 'ssr', tooltip: 'Screen-space reflections of the pier, boats and hills on the water.', onChange: ( v ) => {
+
+			app.waterMaterial.params.ssr.value = v ? 1 : 0;
+			Q.setCustom( 'ssr', v );
+			syncQuality();
+
+		} } );
+		// even the lowest render scale too slow: once a session, point at the Low preset (and surfing)
+		Q.onHint = () => ui.toast( 'Running slowly: try the Low graphics preset (Settings → Performance). Surfing can also be switched off under Gameplay.', 9000 );
 
 		this._t = 0;
 
