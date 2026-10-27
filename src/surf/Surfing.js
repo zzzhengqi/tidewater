@@ -13,8 +13,8 @@ import { DEFAULT_BOARD } from './SurfboardSpec.js';
 //   paddle  prone: W A S D (A / D turn), Shift paddles harder, the board rides the surface. Space next to
 //           a breaking wave tries to catch it: on its face, pointing shoreward, fast enough → you stand
 //           up; otherwise the wave lifts you and goes on (the board is shoved / spun) and a note says why.
-//   ride    standing: A / D carve along the wave, W pumps (more speed), S slows down. Speed, lean and how
-//           hard you can turn come from the slope of the face under the board. Space jumps off.
+//   ride    standing: A / D shift your weight onto a rail and the board carves (the turn comes from the
+//           lean and the speed, never a rudder), W pumps (more speed), S slows down. Space jumps off.
 //   loose   after a wipeout (whitewater, the wave fading out, the reef) or jumping off you swim; the
 //           board floats next to you on its leash and you climb back on by swimming into it.
 //
@@ -22,6 +22,10 @@ import { DEFAULT_BOARD } from './SurfboardSpec.js';
 // read-back latency, in step with the settings. The open-ocean FFT chop is added as a slow residual
 // from the player's water query. At most 5 sample points a frame: centre, nose, tail, the residual
 // (when a read-back lands) and the loose board.
+//
+// The board floats: it is never below the surface under it, rising water lifts it, falling water lets
+// it down no faster than gravity would (a wave dropping away faster throws it into the air). The view is
+// first person only, at standing eye height, and takes its motion from the board itself.
 //
 // Free camera (F) and photo mode (P) work while surfing: the ride goes on without input under the
 // free camera.
@@ -38,7 +42,7 @@ export const SURF_TUNING = {
 	popSpeed: 0.95, // speed after the pop-up, fraction of the wave speed
 	// paddling
 	paddleAccel: 1.8, // 1/s: how fast you reach paddling speed
-	paddleTurn: 1.25, // rad/s
+	paddleTurn: 0.8, // rad/s (lying down you turn slowly: one arm, then the other)
 	paddleDrag: 0.25, // 1/s forward drag when not paddling
 	sideDrag: 4, // 1/s: the board doesn't slip sideways
 	paddleSlopeGravity: 0.35, // share of gravity along the surface slope while prone
@@ -63,24 +67,21 @@ export const SURF_TUNING = {
 	fadeHeight: 0.12, // m: the wave is gone below this height
 	shallowDepth: 0.45, // m of water: the ride ends, you step off (sand)
 	rockDepth: 0.6, // m of water over reef / rock: hit it, wiped out
-	// the board on the water
-	heaveK: 110, // 1/s^2: spring of the board to the water height (higher: stiffer, follows small chop)
-	heaveC: 14, // 1/s: its damping (~0.67 of critical: a little overshoot over a crest)
-	tiltRate: 12, // 1/s: how fast pitch / roll follow the water under nose, tail and rails
-	// first person (V switches to the chase camera)
-	eyeProne: 0.32, // m above the board lying on it
-	eyeStand: 1.5, // m above the board standing (knees bent)
-	bodyFollowProne: 0.85, // share of the board's pitch / roll the view takes lying down
-	bodyFollowStand: 0.55, // ... standing (the legs absorb the rest)
-	kneeBend: 0.012, // m of eye drop per m/s^2 of heave acceleration
-	speedShake: 0.0022, // rad of shake per m/s over 3 m/s
-	foamShake: 0.02, // rad of shake in full whitewater
+	// the board on the water: it floats (never under the surface), the water only pushes it up
+	freeboardProne: 0.0, // m from the water to the bottom of the board with you lying on it
+	freeboardStand: 0.01, // ... standing (planing: the board rides on top)
+	tiltRate: 14, // 1/s: how fast pitch / roll follow the water under nose, tail and rails
+	// riding: you carve by putting the board on a rail (A / D lean), the turn comes from lean and speed
+	leanRate: 4, // 1/s: how fast you roll onto the rail
+	// first person only
+	eyeProne: 0.8, // m above the board lying on it (chest and head up; lower than this is queasy on a screen)
+	eyeStand: 1.75, // m above the board standing (a little above a real eye line, again for comfort)
+	bodyFollowProne: 0.9, // share of the board's pitch / roll the view takes lying down
+	bodyFollowStand: 0.7, // ... standing (the legs absorb the rest)
+	kneeBend: 0.012, // m of eye drop per m/s^2 of the board's vertical acceleration
+	foamShake: 0.03, // rad of jolt in full whitewater (irregular)
 	fovPerSpeed: 1.2, // degrees of extra field of view per m/s over 3 m/s ...
 	fovMax: 9, // ... up to this
-	// chase camera
-	camDist: 5.4,
-	camHeight: 0.32, // rad above the board
-	camLag: 5, // 1/s
 	leash: 2.6, // m
 	remountDelay: 1.4, // s after a wipeout before you can climb back on
 	wadeMount: 0.65, // m of water at the feet: lie on the board
@@ -140,10 +141,7 @@ export class Surfing {
 		this.wobble = 0; // a failed catch shakes the board
 		this.residual = 0; // FFT and the rest, from the read-back (slow)
 		this._rv = - 1;
-		this.camPos = new Vector3();
-		this.camInit = false;
-		this.camYawOff = 0;
-		this.camPitch = T.camHeight;
+		this.air = 0; // s in the air (off a steep wave)
 		this.ride = { t: 0, dist: 0, shownT: 0 };
 		this._whiteT = 0;
 		this._fadeT = 0;
@@ -158,12 +156,10 @@ export class Surfing {
 		this.stats = { samples: 0, ms: 0 };
 		// the swell under the board (see _readWater): five query slots, one result per point + its rate
 		this.slot = app.query.allocate( 'surfboard', 5 );
-		this.water = { r: new Float32Array( 5 ), w: new Float32Array( 5 ), t: 0, age: 0, valid: false };
+		this.water = { r: new Float32Array( 5 ), w: new Float32Array( 5 ), off: new Float32Array( 5 ), t: 0, age: 0, valid: false };
 		this.h = new Float32Array( 5 ); // water height at the board points this frame
 		this.swellGrad = { x: 0, z: 0 };
 		this.vy = 0; // heave velocity (the board is a spring on the water, not glued to it)
-		// view: 'first' (standing / lying on the board) or 'chase' (behind the board); V switches
-		this.view = 'first';
 		this.lookYaw = 0;
 		this.lookPitch = - 0.12;
 		this._fov = null; // the camera's own field of view while a ride widens it
@@ -275,6 +271,7 @@ export class Surfing {
 
 		const q = this.app.query, W = this.water;
 		W.age = Math.min( W.age + dt, 0.15 );
+		for ( let i = 0; i < 5; i ++ ) W.off[ i ] *= Math.exp( - dt / 0.08 ); // a new result's small jump fades out
 		if ( ! q.cpuValid || q.version === this._rv ) return;
 		this._rv = q.version;
 		const t = q.resultTime, dtR = t - W.t;
@@ -293,8 +290,11 @@ export class Surfing {
 			if ( ! Number.isFinite( gpu ) || ! Number.isFinite( shore[ i ] ) ) continue;
 			const r = clamp( gpu - shore[ i ], - 4, 4 );
 			const rate = W.valid && dtR > 1e-4 ? clamp( ( r - W.r[ i ] ) / dtR, - 4, 4 ) : 0;
+			// where the extrapolation was: the step to the new result is blended out instead of jolting the board
+			const was = W.valid ? W.r[ i ] + W.w[ i ] * W.age + W.off[ i ] : r;
 			W.w[ i ] += ( rate - W.w[ i ] ) * 0.5;
 			W.r[ i ] = r;
+			W.off[ i ] = clamp( was - r, - 0.3, 0.3 );
 
 		}
 
@@ -308,7 +308,7 @@ export class Surfing {
 	_swell( i ) {
 
 		const W = this.water;
-		return W.valid ? W.r[ i ] + W.w[ i ] * W.age : 0;
+		return W.valid ? W.r[ i ] + W.w[ i ] * W.age + W.off[ i ] : 0;
 
 	}
 
@@ -360,15 +360,6 @@ export class Surfing {
 		}
 
 		this._cooldown = Math.max( 0, this._cooldown - dt );
-		// V: first person on the board / chase camera behind it
-		if ( this.active && ! freeCam && this.input.hit( 'KeyV' ) ) {
-
-			this.view = this.view === 'first' ? 'chase' : 'first';
-			this.camInit = false;
-			this._toast( this.view === 'first' ? 'surf.viewFirst' : 'surf.viewChase', 1400 );
-
-		}
-
 		switch ( this.state ) {
 
 			case 'carry': this._carryUpdate( dt ); break;
@@ -419,8 +410,8 @@ export class Surfing {
 		this.vel.set( p.velocity.x, 0, p.velocity.z ).multiplyScalar( 0.5 );
 		this.pitch = this.roll = this.lean = 0;
 		this.vy = 0;
-		this.camInit = false;
-		this.camYawOff = 0;
+		this.air = 0;
+		this._surfY = undefined;
 		this.lookYaw = 0;
 		this.lookPitch = - 0.12;
 		this.boardMesh.castShadow = true;
@@ -490,7 +481,7 @@ export class Surfing {
 		if ( s.foam > 0.55 && s.b > T.catchBreak[ 1 ] ) {
 
 			this._toast( 'surf.whitewater' );
-			this.wobble = 0.6;
+			this.wobble = ( Math.random() < 0.5 ? - 1 : 1 ) * 0.12;
 
 		} else if ( ! onFace || s.b < T.catchBreak[ 0 ] ) {
 
@@ -499,7 +490,7 @@ export class Surfing {
 		} else if ( s.b > T.catchBreak[ 1 ] ) {
 
 			this._toast( 'surf.whitewater' );
-			this.wobble = 0.6;
+			this.wobble = ( Math.random() < 0.5 ? - 1 : 1 ) * 0.12;
 
 		} else if ( align < T.catchAlign ) {
 
@@ -508,7 +499,7 @@ export class Surfing {
 			this.vel.x += s.dirX * s.c * 0.55;
 			this.vel.z += s.dirZ * s.c * 0.55;
 			this.heading += side * 0.7;
-			this.wobble = 1;
+			this.wobble = ( Math.random() < 0.5 ? - 1 : 1 ) * 0.22;
 
 		} else if ( along < T.catchSpeed * s.c ) {
 
@@ -516,7 +507,7 @@ export class Surfing {
 			this._toast( 'surf.tooSlow' );
 			this.vel.x += s.dirX * s.c * 0.3;
 			this.vel.z += s.dirZ * s.c * 0.3;
-			this.wobble = 0.8;
+			this.wobble = ( Math.random() < 0.5 ? - 1 : 1 ) * 0.16;
 
 		} else {
 
@@ -550,13 +541,16 @@ export class Surfing {
 		const pull = ( target - along ) * face * T.carry * dt;
 		this.vel.x += s.dirX * pull;
 		this.vel.z += s.dirZ * pull;
-		// carving: how hard depends on speed and on how steep the face is
+		// carving, not steering: A / D shift your weight and roll the board onto a rail; the turn comes from
+		// the lean and the speed as in a carved turn (radius v^2 / ( g tan lean )), a little tighter on a
+		// steep face where the rail bites. In the air there is nothing to turn against.
 		let speed = Math.hypot( this.vel.x, this.vel.z );
 		const turn = on ? ( inp.down( 'KeyA' ) ? 1 : 0 ) - ( inp.down( 'KeyD' ) ? 1 : 0 ) : 0;
-		const rate = sp.turnRate * turn * clamp( speed / T.fullTurnSpeed, 0.35, 1 ) * ( 0.45 + 0.75 * face );
+		this.lean += ( - turn * T.maxLean - this.lean ) * ( 1 - Math.exp( - dt * T.leanRate ) );
+		const rate = this.air > 0 ? 0 : clamp( GRAV * Math.tan( - this.lean ) / Math.max( speed, T.fullTurnSpeed * 0.5 ), - sp.turnRate, sp.turnRate ) * ( 0.65 + 0.35 * face );
 		this.heading += rate * dt;
 		const fx = Math.sin( this.heading ), fz = Math.cos( this.heading ), rx = - fz, rz = fx;
-		if ( on && inp.down( 'KeyW' ) ) {
+		if ( on && inp.down( 'KeyW' ) && ! this.air ) {
 
 			this.vel.x += fx * T.pump * ( 0.3 + face ) * dt;
 			this.vel.z += fz * T.pump * ( 0.3 + face ) * dt;
@@ -573,7 +567,6 @@ export class Surfing {
 		if ( speed > sp.maxSpeed ) this.vel.multiplyScalar( sp.maxSpeed / speed );
 		this.pos.x += this.vel.x * dt;
 		this.pos.z += this.vel.z * dt;
-		this.lean += ( clamp( - rate * speed * 0.09, - T.maxLean, T.maxLean ) - this.lean ) * ( 1 - Math.exp( - dt * 6 ) );
 		this.ride.t += dt;
 		this.ride.dist += speed * dt;
 		this._spray( dt, s, speed, face );
@@ -698,32 +691,51 @@ export class Surfing {
 
 	}
 
-	// ---- the board on the water: heave as a damped spring to the water at the centre, pitch from the nose
-	// and tail heights, roll from the two rails (all including the swell: _sampleBoard)
+	// ---- the board on the water. It floats: no part of it is ever under the surface. The water can only
+	// push it up: rising water lifts it, falling water lowers it no faster than the water falls, and water
+	// that drops away faster than gravity leaves it in the air for a moment (off the lip of a steep wave)
+	// until it lands on the water again. Pitch / roll lie it along the water under its nose, tail and rails.
 	_applyPose( dt ) {
 
 		const sp = this.spec, H = this.h;
 		const h = sp.length * 0.42, w = sp.width * 0.45;
 		const water = H[ 0 ];
-		const float = this.state === 'paddle' ? sp.thickness * ( sp.buoyancy - 0.5 ) - 0.02 : sp.thickness * 0.1;
-		const target = water + float;
+		const airborne = this.air > 0;
+		// in the air the board keeps its attitude (a little drift), on the water it lies on the surface
+		const tilt = airborne ? 0.5 : T.tiltRate;
+		const pitch = Math.atan2( H[ 1 ] - H[ 2 ], 2 * h );
+		const roll = - Math.atan2( H[ 3 ] - H[ 4 ], 2 * w ) + ( this.state === 'ride' ? this.lean : 0 ) + this.wobble;
+		this.wobble *= Math.exp( - dt * 3 );
+		this.pitch += ( pitch - this.pitch ) * ( 1 - Math.exp( - dt * tilt ) );
+		this.roll += ( roll - this.roll ) * ( 1 - Math.exp( - dt * tilt ) );
+		// the lowest the centre can sit with the bottom of the board above the water at all five points
+		const sinP = Math.sin( this.pitch ), sinR = Math.sin( this.roll );
+		const bottom = sp.thickness * 0.5 + ( this.state === 'paddle' ? T.freeboardProne : T.freeboardStand );
+		let surface = Math.max( H[ 0 ], H[ 1 ] - h * sinP, H[ 2 ] + h * sinP, H[ 3 ] + w * sinR, H[ 4 ] - w * sinR ) + bottom;
+		if ( ! Number.isFinite( surface ) ) surface = water + bottom;
+		const sv = this._surfY === undefined || ! dt ? 0 : clamp( ( surface - this._surfY ) / dt, - 6, 6 ); // the water's vertical speed under the board
+		this._surfY = surface;
 		if ( ! Number.isFinite( this.pos.y ) || ! Number.isFinite( this.vy ) ) {
 
-			this.pos.y = target;
+			this.pos.y = surface;
 			this.vy = 0;
 
 		}
 
-		const acc = T.heaveK * ( target - this.pos.y ) - T.heaveC * this.vy;
-		this.vy += acc * dt;
-		this.pos.y = clamp( this.pos.y + this.vy * dt, target - 0.35, target + 0.45 ); // (never through the water / off a crest)
-		this.heaveAcc = acc;
-		const pitch = Math.atan2( H[ 1 ] - H[ 2 ], 2 * h );
-		const roll = - Math.atan2( H[ 3 ] - H[ 4 ], 2 * w );
-		this.wobble *= Math.exp( - dt * 2.5 );
-		const tt = performance.now() / 1000;
-		this.pitch += ( pitch + Math.sin( tt * 7 ) * this.wobble * 0.25 - this.pitch ) * ( 1 - Math.exp( - dt * T.tiltRate ) );
-		this.roll += ( roll + ( this.state === 'ride' ? this.lean : 0 ) + Math.sin( tt * 9 ) * this.wobble * 0.35 - this.roll ) * ( 1 - Math.exp( - dt * T.tiltRate ) );
+		const vy0 = this.vy;
+		this.vy -= GRAV * dt;
+		this.pos.y += this.vy * dt;
+		if ( this.pos.y <= surface ) {
+
+			// on the water: carried by it (and launched if it was rising faster than it is now)
+			this.pos.y = surface;
+			this.vy = Math.max( this.vy, sv );
+			if ( this.air > 0.25 && this.app.audio ) this.app.audio.splash( clamp( this.air, 0.2, 0.8 ), this.player.position );
+			this.air = 0;
+
+		} else this.air = ( this.air || 0 ) + dt;
+
+		this.heaveAcc = ( this.vy - vy0 ) / Math.max( dt, 1e-3 ); // what the legs feel (m/s^2)
 		// (a non-finite sample must never stick in the smoothed angles)
 		if ( ! Number.isFinite( this.pitch ) ) this.pitch = 0;
 		if ( ! Number.isFinite( this.roll ) ) this.roll = 0;
@@ -735,41 +747,49 @@ export class Surfing {
 		const p = this.player;
 		p.position.set( this.pos.x, water - 0.2, this.pos.z );
 		p.waterH = p.waterMean = water;
-		p.yaw = this.heading + Math.PI + ( this.view === 'first' ? this.lookYaw : 0 );
-		p.pitch = this.view === 'first' ? this.lookPitch : - 0.1;
+		p.yaw = this.heading + Math.PI + this.lookYaw;
+		p.pitch = this.lookPitch;
 
 	}
 
+	// First person only: lying on the board while paddling, standing on it while riding. Everything the
+	// view does comes from the board: it rides the board's heave fully and most of its pitch / roll (the
+	// body balances a little of it out), the legs give under the board's vertical acceleration (pressed
+	// down when the water lifts the board, light as it drops or flies), whitewater jostles it with
+	// irregular noise, and the field of view widens with speed on a wave. The mouse turns the head.
 	_camera( dt ) {
 
-		const look = this.input.consumeLook();
-		if ( this.view === 'chase' ) this._chaseCamera( dt, look );
-		else this._firstPerson( dt, look );
-
-	}
-
-	// First person: lying on the board while paddling, standing on it while riding. The eye rides the
-	// board's heave fully and part of its pitch / roll (the body balances the rest); the mouse turns the
-	// head. Feedback: the heave acceleration bends the knees (the eye dips as the board is lifted, rises
-	// as it drops), speed and whitewater shake the view, the field of view widens with speed.
-	_firstPerson( dt, look ) {
-
 		const p = this.player, cam = p.camera;
+		const look = this.input.consumeLook();
 		this.lookYaw = clamp( this.lookYaw - look.x * 0.0022, - 2.0, 2.0 );
 		this.lookPitch = clamp( this.lookPitch - look.y * 0.0022, - 1.3, 1.1 );
 		const standing = this.state === 'ride';
 		const board = _q.setFromEuler( _e.set( - this.pitch, this.heading, this.roll ) );
 		const yawOnly = _q2.setFromEuler( _e.set( 0, this.heading, 0 ) );
 		const body = _q3.slerpQuaternions( yawOnly, board, standing ? T.bodyFollowStand : T.bodyFollowProne );
-		const eye = _a.set( 0, standing ? T.eyeStand : T.eyeProne, standing ? - 0.2 : 0.15 ).applyQuaternion( body ).add( this.pos );
-		eye.y -= clamp( ( this.heaveAcc || 0 ) * T.kneeBend, - 0.14, 0.14 );
-		const speed = Math.hypot( this.vel.x, this.vel.z );
-		const shake = ( standing ? Math.max( 0, speed - 3 ) * T.speedShake : 0 ) + ( this.s.foam || 0 ) * T.foamShake + this.wobble * 0.02;
-		const tt = performance.now() / 1000;
-		const sy = ( Math.sin( tt * 23.1 ) + Math.sin( tt * 37.7 ) * 0.5 ) * shake, sp = ( Math.sin( tt * 29.3 ) + Math.sin( tt * 41.9 ) * 0.5 ) * shake;
+		// the legs: a smoothed response to the board's vertical acceleration
+		this._knee = ( this._knee || 0 ) + ( clamp( ( this.heaveAcc || 0 ) * T.kneeBend, - 0.16, 0.16 ) - ( this._knee || 0 ) ) * ( 1 - Math.exp( - dt * 10 ) );
+		const eye = _a.set( 0, ( standing ? T.eyeStand : T.eyeProne ) - this._knee, standing ? - 0.2 : 0.15 ).applyQuaternion( body ).add( this.pos );
+		// whitewater: irregular jolts (value noise, no fixed rhythm)
+		const foam = this.s.foam || 0;
+		this._jolt = this._jolt || { t: 0, a: 0, b: 0, x0: 0, x1: 0, y0: 0, y1: 0 };
+		const J = this._jolt;
+		J.t += dt * 9;
+		if ( J.t >= 1 ) {
+
+			J.t -= 1;
+			J.x0 = J.x1; J.y0 = J.y1;
+			J.x1 = Math.random() * 2 - 1; J.y1 = Math.random() * 2 - 1;
+
+		}
+
+		const k = J.t * J.t * ( 3 - 2 * J.t );
+		const jolt = foam * T.foamShake;
 		cam.position.copy( eye );
 		// camera looks down its -Z: turn the body frame (+Z forward) around, then the head
-		cam.quaternion.copy( body ).multiply( _q2.setFromAxisAngle( _yAxis, Math.PI ) ).multiply( _q4.setFromEuler( _e.set( this.lookPitch + sp, this.lookYaw + sy, 0 ) ) );
+		cam.quaternion.copy( body ).multiply( _q2.setFromAxisAngle( _yAxis, Math.PI ) )
+			.multiply( _q4.setFromEuler( _e.set( this.lookPitch + ( J.y0 + ( J.y1 - J.y0 ) * k ) * jolt, this.lookYaw + ( J.x0 + ( J.x1 - J.x0 ) * k ) * jolt, 0 ) ) );
+		const speed = Math.hypot( this.vel.x, this.vel.z );
 		if ( cam.fov !== undefined ) {
 
 			if ( this._fov === null ) this._fov = cam.fov;
@@ -795,34 +815,6 @@ export class Surfing {
 		cam.fov = this._fov;
 		cam.updateProjectionMatrix();
 		this._fov = null;
-
-	}
-
-	// third-person chase camera behind the board (V; the mouse orbits around it)
-	_chaseCamera( dt, look ) {
-
-		const p = this.player, cam = p.camera;
-		this._restoreFov();
-		this.camYawOff -= look.x * 0.003;
-		this.camPitch = clamp( this.camPitch + look.y * 0.003, 0.02, 1.2 );
-		if ( Math.abs( look.x ) < 0.5 ) this.camYawOff *= Math.exp( - dt * 0.6 ); // swings back behind the board
-		const yaw = this.heading + Math.PI + this.camYawOff;
-		const tgt = _a.set( this.pos.x, this.pos.y + ( this.state === 'ride' ? 1.1 : 0.45 ), this.pos.z );
-		const d = T.camDist * ( this.state === 'ride' ? 1 : 0.8 );
-		const want = _b.set( tgt.x + Math.sin( yaw ) * Math.cos( this.camPitch ) * d, tgt.y + Math.sin( this.camPitch ) * d, tgt.z + Math.cos( yaw ) * Math.cos( this.camPitch ) * d );
-		want.y = Math.max( want.y, this.pos.y + 0.45 );
-		if ( ! Number.isFinite( want.x + want.y + want.z ) || ! Number.isFinite( tgt.y ) ) return; // (keep the last good view)
-		if ( ! this.camInit || ! Number.isFinite( this.camPos.x + this.camPos.y + this.camPos.z ) ) {
-
-			this.camPos.copy( want );
-			this.camInit = true;
-
-		}
-
-		this.camPos.lerp( want, 1 - Math.exp( - dt * T.camLag ) );
-		cam.position.copy( this.camPos );
-		cam.lookAt( tgt );
-		p._camY = null;
 
 	}
 
