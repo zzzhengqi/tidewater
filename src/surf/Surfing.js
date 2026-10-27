@@ -348,6 +348,9 @@ export class Surfing {
 		this.prone.visible = true;
 		this.stand.visible = false;
 		this.boardMesh.castShadow = true;
+		// the water under the board before the first pose: _applyPose runs this same frame, and without a
+		// sample the height would be undefined (NaN in the board, the camera and the player: a black view)
+		this._sample( this.pos.x, this.pos.z, this.s );
 
 	}
 
@@ -630,7 +633,8 @@ export class Surfing {
 		const h = sp.length * 0.42;
 		const n = this._sample( this.pos.x + fx * h, this.pos.z + fz * h, this._sn );
 		const tl = this._sample( this.pos.x - fx * h, this.pos.z - fz * h, this._st );
-		const water = s.h + this.residual;
+		let water = s.h + this.residual;
+		if ( ! Number.isFinite( water ) ) water = Number.isFinite( this.player.waterH ) ? this.player.waterH : 0;
 		const float = this.state === 'paddle' ? sp.thickness * ( sp.buoyancy - 0.5 ) - 0.02 : sp.thickness * 0.1;
 		this.pos.y = this.pos.y ? this.pos.y + ( water + float - this.pos.y ) * ( 1 - Math.exp( - dt * 14 ) ) : water + float;
 		const pitch = Math.atan2( n.h - tl.h, 2 * h );
@@ -667,7 +671,8 @@ export class Surfing {
 		const d = T.camDist * ( this.state === 'ride' ? 1 : 0.8 );
 		const want = _b.set( tgt.x + Math.sin( yaw ) * Math.cos( this.camPitch ) * d, tgt.y + Math.sin( this.camPitch ) * d, tgt.z + Math.cos( yaw ) * Math.cos( this.camPitch ) * d );
 		want.y = Math.max( want.y, this.pos.y + 0.45 );
-		if ( ! this.camInit ) {
+		if ( ! Number.isFinite( want.x + want.y + want.z ) || ! Number.isFinite( tgt.y ) ) return; // (keep the last good view)
+		if ( ! this.camInit || ! Number.isFinite( this.camPos.x + this.camPos.y + this.camPos.z ) ) {
 
 			this.camPos.copy( want );
 			this.camInit = true;

@@ -489,6 +489,38 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 	}
 
 	// T: let the day run (about 8 minutes per day) or stop it
+	// Safety net: a non-finite camera renders a black frame (and fills the temporal buffers), a non-finite
+	// player never recovers on its own. Whatever produced it, go back to the last good state.
+	guardViewAndPlayer() {
+
+		const ok = ( v ) => Number.isFinite( v.x ) && Number.isFinite( v.y ) && Number.isFinite( v.z );
+		const c = this.camera, p = this.player;
+		const g = this._good || ( this._good = { cam: c.position.clone(), q: c.quaternion.clone(), player: p.position.clone() } );
+		if ( ok( c.position ) && ok( c.quaternion ) && Number.isFinite( c.quaternion.w ) ) {
+
+			g.cam.copy( c.position );
+			g.q.copy( c.quaternion );
+
+		} else {
+
+			console.warn( 'App: non-finite camera, restored the last good view' );
+			c.position.copy( g.cam );
+			c.quaternion.copy( g.q );
+
+		}
+
+		if ( ok( p.position ) && ok( p.velocity ) ) g.player.copy( p.position );
+		else {
+
+			console.warn( 'App: non-finite player position, restored' );
+			p.position.copy( g.player );
+			p.velocity.set( 0, 0, 0 );
+			p._camY = null;
+
+		}
+
+	}
+
 	// settings > Gameplay > Boat: back to the berth, upright, from anywhere (stuck, capsized, far out).
 	// Anyone aboard comes along; a swimmer stays where they are.
 	towBoat() {
@@ -651,6 +683,7 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 		// the board / ride (after the player: it may hand the player over); under the free camera the
 		// ride goes on without input
 		this.surf.update( dt, this.freeCam );
+		this.guardViewAndPlayer();
 		this.game.update( dt );
 		this.updateSun();
 
