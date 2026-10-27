@@ -12,6 +12,8 @@ import { UPGRADES, fuelBurn } from './Gear.js';
 import { GameHUD } from './GameHUD.js';
 import { Minimap } from './Minimap.js';
 import { Guide } from './Guide.js';
+import { t } from '../ui/i18n.js';
+import { fishName, gearName, gearLabel, kg, litres, money, vendorText } from './text.js';
 
 // how long the catch card stays up unless dismissed (ms)
 const CATCH_CARD_MS = 9000;
@@ -105,7 +107,7 @@ export class Game {
 	buy( key ) {
 
 		const r = this.state.buy( key );
-		if ( r ) this.toast( `${ UPGRADES[ key ].name }: ${ r.label }` );
+		if ( r && UPGRADES[ key ] ) this.toast( t( 'shop.trackLine', { track: gearName( key ), label: gearLabel( key, r.index ) } ) );
 		return r;
 
 	}
@@ -116,7 +118,7 @@ export class Game {
 		if ( l > 0 ) {
 
 			this._fuelOut = false;
-			this.toast( `Filled up · ${ l.toFixed( 0 ) } L` );
+			this.toast( t( 'game.filledUp', { litres: litres( l ) } ) );
 
 		}
 
@@ -159,7 +161,7 @@ export class Game {
 
 			rod.equip( ! rod.equipped );
 			if ( ! rod.equipped ) this.cancelLine();
-			this.toast( rod.equipped ? 'Rod out · hold left mouse to cast' : 'Rod away', 1600 );
+			this.toast( t( rod.equipped ? 'game.rodOut' : 'game.rodAway' ), 1600 );
 
 		}
 
@@ -290,24 +292,24 @@ export class Game {
 
 			// by the water (boat deck, pier, the wet beach, wading): suggest the rod
 			const byWater = p.mode === 'deck' || ( p.mode === 'walk' && [ 'wood', 'wetsand', 'water' ].includes( p.surface ) );
-			return byWater ? { key: 'R', text: 'Take out the rod' } : null;
+			return byWater ? { key: 'R', text: t( 'prompt.takeRod' ) } : null;
 
 		}
 
 		const b = this.bite;
 		switch ( rod.state ) {
 
-			case 'idle': return { key: 'LMB', text: 'Hold to wind up, release to cast   ·   R  put the rod away' };
-			case 'windup': return { key: 'LMB', text: 'Release to cast (hold longer to cast farther)' };
+			case 'idle': return { key: 'LMB', text: t( 'prompt.castIdle' ) };
+			case 'windup': return { key: 'LMB', text: t( 'prompt.windup' ) };
 			case 'flying': return null;
 			case 'floating':
-				if ( b && b.phase === 'take' ) return { key: 'LMB', text: 'Strike now!' };
-				if ( b && b.phase === 'nibble' ) return { key: '…', text: 'Something\'s nibbling · wait until the bobber is pulled under' };
-				return { key: 'RMB', text: 'Waiting for a bite · right-click to reel the line in' };
-			case 'retrieving': return { key: 'RMB', text: 'Reeling in' };
+				if ( b && b.phase === 'take' ) return { key: 'LMB', text: t( 'prompt.strike' ) };
+				if ( b && b.phase === 'nibble' ) return { key: '…', text: t( 'prompt.nibbling' ) };
+				return { key: 'RMB', text: t( 'prompt.waiting' ) };
+			case 'retrieving': return { key: 'RMB', text: t( 'prompt.reeling' ) };
 			case 'fighting': return this.fight && this.fight.tension > this.fight.band[ 1 ]
-				? { key: 'LMB', text: 'Too much tension · let go!' }
-				: { key: 'LMB', text: 'Hold to reel · let go when the tension goes red' };
+				? { key: 'LMB', text: t( 'prompt.tooMuchTension' ) }
+				: { key: 'LMB', text: t( 'prompt.holdToReel' ) };
 			case 'landing': return null;
 			default: return null;
 
@@ -325,7 +327,7 @@ export class Game {
 			if ( left <= 0 ) {
 
 				b.throttle = 0;
-				if ( ! this._fuelOut ) this.toast( 'Out of fuel · buy diesel at the chandlery by the boathouse', 4000 );
+				if ( ! this._fuelOut ) this.toast( t( 'game.outOfFuel' ), 4000 );
 				this._fuelOut = true;
 
 			}
@@ -360,7 +362,7 @@ export class Game {
 		for ( const v of this.vendors ) v.talking = !! ( hud && hud.standOpen && hud.vendor === v );
 		if ( hud && hud.standOpen && ( ! near || near !== hud.vendor ) ) hud.closeStand();
 		if ( ! near || this.fight || this._cardDismissed || ( hud && hud.catchOpen ) ) return;
-		if ( ! p.prompt ) p.prompt = { key: 'E', text: hud && hud.standOpen ? 'Leave' : `Talk to ${ near.name.split( ' ·' )[ 0 ] }` };
+		if ( ! p.prompt ) p.prompt = { key: 'E', text: hud && hud.standOpen ? t( 'prompt.leave' ) : t( 'prompt.talkTo', { name: vendorText( near, 'short' ) } ) };
 		if ( inp.hit( 'KeyE' ) ) {
 
 			if ( ! hud ) {
@@ -377,7 +379,7 @@ export class Game {
 	sellAll() {
 
 		const r = this.state.sell();
-		if ( r.count ) this.toast( `Sold ${ r.count } fish for $${ r.total }` );
+		if ( r.count ) this.toast( t( 'game.soldFish', { count: r.count, money: money( r.total ) } ) );
 		if ( this.app.audio && this.app.audio.coin ) this.app.audio.coin();
 		return r;
 
@@ -386,7 +388,7 @@ export class Game {
 	sell( ids ) {
 
 		const r = this.state.sell( ids );
-		if ( r.count ) this.toast( `Sold for $${ r.total }` );
+		if ( r.count ) this.toast( t( 'game.sold', { money: money( r.total ) } ) );
 		return r;
 
 	}
@@ -421,7 +423,7 @@ export class Game {
 
 		if ( where !== 'water' ) {
 
-			this.toast( 'Landed on the sand', 1400 );
+			this.toast( t( 'game.landedSand' ), 1400 );
 			return;
 
 		}
@@ -477,7 +479,7 @@ export class Game {
 
 		} else if ( b.phase === 'take' ) {
 
-			this.toast( 'It took the bait and ran', 1800 );
+			this.toast( t( 'game.tookBait' ), 1800 );
 			this.bite = { phase: 'wait', t: biteDelay( this.habitat(), this.hour ) };
 
 		}
@@ -490,7 +492,7 @@ export class Game {
 		if ( ! b || b.phase === 'wait' || b.phase === 'nibble' ) {
 
 			// too early: a nibbling fish isn't hooked yet; it keeps nibbling (a hint, no penalty)
-			if ( b && b.phase === 'nibble' ) this.toast( 'Not yet · wait for it to pull under', 1500 );
+			if ( b && b.phase === 'nibble' ) this.toast( t( 'game.notYet' ), 1500 );
 			return;
 
 		}
@@ -499,7 +501,7 @@ export class Game {
 		this.fight = new CatchMinigame( { species: b.species, kg: b.kg, lineKg: g.lineKg, reelSpeed: g.reelSpeed, distance: Math.max( 3, this.rod.lineOut ) } );
 		this.bite = null;
 		this.rod.hook();
-		this.toast( 'Fish on!', 1200 );
+		this.toast( t( 'hud.fishOn' ), 1200 );
 
 	}
 
@@ -514,7 +516,7 @@ export class Game {
 		if ( st === 'fighting' ) return;
 		this.fight = null;
 		this.rod.dip = 0;
-		const name = FISH[ f.species ].name;
+		const name = fishName( f.species );
 		if ( st === 'caught' ) {
 
 			const entry = this.state.addFish( f.species, f.kg, this.hour );
@@ -525,8 +527,8 @@ export class Game {
 			if ( this.hud ) this.landing = { species: f.species, kg: f.kg, card: info, cardT: 0 };
 			else {
 
-				if ( entry ) this.toast( `${ info.record ? 'New record! ' : '' }${ name } · ${ entry.kg.toFixed( 2 ) } kg · $${ entry.value }`, 3600 );
-				else this.toast( `${ name } · ${ f.kg.toFixed( 1 ) } kg · no room in the ${ this.state.upgrades.hold > 0 ? 'hold' : 'cooler' }, let it go`, 3600 );
+				if ( entry ) this.toast( t( info.record ? 'game.caughtRecord' : 'game.caught', { name, kg: kg( entry.kg ), money: money( entry.value ) } ), 3600 );
+				else this.toast( t( this.state.upgrades.hold > 0 ? 'game.noRoomHold' : 'game.noRoomCooler', { name, kg: kg( f.kg, 1 ) } ), 3600 );
 				this.landing = { species: f.species, kg: f.kg };
 
 			}
@@ -535,13 +537,13 @@ export class Game {
 
 		} else if ( st === 'snapped' ) {
 
-			this.toast( 'Snap! The line broke', 2400 );
+			this.toast( t( 'game.lineSnapped' ), 2400 );
 			if ( au && au.lineSnap ) au.lineSnap();
 			this.rod.setState( 'idle' );
 
 		} else {
 
-			this.toast( 'It threw the hook', 2000 );
+			this.toast( t( 'game.threwHook' ), 2000 );
 			this.rod.endFight();
 
 		}
@@ -561,7 +563,7 @@ export class Game {
 	// line in at once (mode change)
 	cancelLine( silent = false ) {
 
-		if ( this.fight && ! silent ) this.toast( 'Lost it', 1400 );
+		if ( this.fight && ! silent ) this.toast( t( 'game.lostIt' ), 1400 );
 		this.fight = null;
 		this.bite = null;
 		if ( this.rod.state !== 'stowed' ) this.rod.setState( this.rod.equipped ? 'idle' : 'stowed' );

@@ -5,7 +5,9 @@
     "dev": "vite --host 127.0.0.1 --port 5189",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node test/game-logic.mjs && node test/engine-smoke.mjs"
+    "i18n:check": "node test/i18n-check.mjs",
+    "i18n:preview": "node test/build-i18n-preview.js",
+    "test": "npm run i18n:check && node test/i18n.test.mjs && node test/game-logic.mjs && node test/engine-smoke.mjs"
   },
   "devDependencies": {
     "vite": "^8.3.0",

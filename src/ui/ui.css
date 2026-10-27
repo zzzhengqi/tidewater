@@ -1208,7 +1208,32 @@ body {
 
 .tw-panel-actions {
 	display: flex;
+	align-items: center;
 	gap: calc(2 * var(--tw-u));
+}
+
+.tw-language {
+	max-width: calc(90 * var(--tw-u));
+	padding: calc(4 * var(--tw-u));
+	border-radius: calc(7 * var(--tw-u));
+	background: var(--tw-fill-2);
+	color: var(--tw-ink);
+	color-scheme: dark;
+	font: inherit;
+}
+
+.tw-language option {
+	background: #18252e;
+	color: var(--tw-ink);
+}
+
+.tw-root[data-lang='ar'] .tw-label-text,
+.tw-root[data-lang='ar'] .tw-folder-title,
+.tw-root[data-lang='ar'] .gm-panel,
+.tw-root[data-lang='ar'] .gm-guide-card,
+.tw-root[data-lang='ar'] .gm-coach-text {
+	direction: rtl;
+	text-align: right;
 }
 
 .tw-icon-btn {

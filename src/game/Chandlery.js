@@ -40,6 +40,7 @@ export class Chandlery {
 		const local = new Vector3( 0, 0, - 0.75 ).applyAxisAngle( new Vector3( 0, 1, 0 ), CHANDLERY.yaw );
 		const vx = CHANDLERY.x + local.x, vz = CHANDLERY.z + local.z;
 		this.vendor = new Vendor( {
+			id: 'marta',
 			name: 'Marta · Chandlery',
 			kind: 'shop',
 			position: new Vector3( vx, terrain.heightAt( vx, vz ), vz ),

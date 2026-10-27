@@ -2,6 +2,7 @@ import './core/BenchSeed.js';
 import { App } from './App.js';
 import { UI } from './ui/UI.js';
 import { AppUI } from './ui/AppUI.js';
+import { t, phrase } from './ui/i18n.js';
 
 // ?bench runs in background tabs too (automation): rAF does not fire in a hidden page
 if ( /[?&]bench\b/.test( location.search ) ) {
@@ -42,6 +43,6 @@ app.init( ( p, text, until ) => ui.setLoading( p, text, until ) ).then( async ()
 } ).catch( ( e ) => {
 
 	console.error( e );
-	ui.setLoadingError( 'Something went wrong: ' + e.message );
+	ui.setLoadingError( t( 'loader.error', { message: phrase( e.message ) } ) );
 
 } );

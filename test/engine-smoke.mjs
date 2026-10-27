@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { writePNG } from './headless.mjs';
 import { GPU } from '../src/engine/gpu/GPU.js';
 import { RenderTarget } from '../src/engine/gpu/Texture.js';
@@ -52,7 +54,7 @@ for ( let f = 0; f < 2; f ++ ) {
 	GPU.submit();
 }
 const img = await readTexture( ldr.texture );
-writePNG( process.argv[ 2 ] || '/tmp/engine-smoke.png', W, H, new Uint8Array( img.data ) );
+writePNG( process.argv[ 2 ] || join( tmpdir(), 'engine-smoke.png' ), W, H, new Uint8Array( img.data ) );
 console.log( 'stats', mr.stats );
 await new Promise( ( r ) => setTimeout( r, 200 ) );
 process.exit( 0 );

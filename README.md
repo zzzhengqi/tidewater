@@ -5,7 +5,7 @@ sell your catch to Joe at the fish stand, and spend it on better gear at Marta's
 real-time tropical island and ocean: swim the reef, drive the boat out to deep water, and watch a humpback
 breach. It runs directly on WebGPU and WGSL with its own small rendering engine, no framework.
 
-**Play it:** https://dgreenheck.github.io/tidewater/
+**Play it:** https://zzzhengqi.github.io/tidewater/ (this fork; upstream: https://dgreenheck.github.io/tidewater/)
 
 ![Fishing off the pier at golden hour](docs/screenshot.jpg)
 
@@ -131,6 +131,22 @@ npm run build    # static build in dist/
 
 Every push to `main` deploys to GitHub Pages through `.github/workflows/deploy.yml`.
 
+### Languages
+
+The interface is available in English, 简体中文, 日本語, 한국어 and العربية: pick one from the menu at the top of
+the settings panel (`H`). The choice is saved in the browser; on a first visit a Chinese browser gets Chinese,
+anything else English. All text lives in `src/ui/locales/<language>.js` (see [docs/PROGRESS.md](docs/PROGRESS.md)
+for how to add or change a string).
+
+```sh
+npm run i18n:check    # every language has every key, no extra or empty ones (part of npm test)
+npm run i18n:preview  # rebuilds test/i18n.html
+```
+
+To look at every screen in every language without WebGPU, open `test/i18n.html` directly in a browser. It is a
+standalone preview (settings, help, start screen, HUD, fishing HUD, catch card, cooler, fish stand, chandlery,
+guide, loader); after changing the UI, regenerate it with `npm run i18n:preview`.
+
 ## Project layout
 
 | Folder | Contents |
@@ -144,9 +160,9 @@ Every push to `main` deploys to GitHub Pages through `.github/workflows/deploy.y
 | `src/materials/` | Shared lighting: shadow filtering, bounce light, contact shadows, local lights, LOD fades |
 | `src/player/` | Walking, swimming, the boat and the free camera |
 | `src/audio/` | The sample-based soundscape |
-| `src/ui/` | Settings panel, loading screen and HUD |
+| `src/ui/` | Settings panel, loading screen and HUD; `i18n.js` and `locales/` hold the interface text in every language |
 | `tools/` | Scripts that fetch and convert the characters, stall props and fishing sounds |
-| `test/` | Headless engine smoke test and game-logic tests (`npm test`), and HUD / loader dev pages |
+| `test/` | i18n check, headless engine smoke test and game-logic tests (`npm test`), the language preview, HUD / loader dev pages |
 
 ## Credits and license
 
