@@ -1,6 +1,7 @@
 import { WORLD } from '../world/WorldLayout.js';
 import { STAND } from './FishStand.js';
 import { CHANDLERY } from './Chandlery.js';
+import { t as tr, onLanguageChange } from '../ui/i18n.js';
 
 // Minimap, lower right: the island baked once from the terrain data into a 2D canvas (depth-tinted
 // sea, reef and seagrass, sand, grass and forest by height, rock, paths, village pads, the pier,
@@ -137,7 +138,8 @@ export class Minimap {
 
 			} },
 		];
-		this.north = h( 'div', 'gm-map-n', 'N' );
+		this.north = h( 'div', 'gm-map-n', tr( 'dir.n' ) );
+		this._offLanguage = onLanguageChange( () => { this.north.textContent = tr( 'dir.n' ); } );
 		this.marks.append( this.north );
 		this.fish = [ h( 'div', 'gm-map-fish', '<i></i><i></i>' ), h( 'div', 'gm-map-fish', '<i></i><i></i>' ) ];
 		this.fish.forEach( ( f ) => this.marks.prepend( f ) );

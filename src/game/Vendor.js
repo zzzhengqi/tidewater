@@ -8,12 +8,15 @@ import { createPropMaterial, PAT } from './GameMaterials.js';
 // holds the stand-in figure; setModel( obj ) replaces it. loadCharacter( url ) swaps in a skinned,
 // animated character (engine SkinnedModel, Rocketbox avatars) once it has loaded: idle clip,
 // a wave when the player comes up, talk gestures while their panel is open (vendor.talking).
-//   new Vendor( { name, position, yaw, radius, greeting, idle, material, character } )
+//   new Vendor( { id, name, position, yaw, radius, greeting, idle, material, character } )
+//   id picks the vendor's display text in the locale (vendor.<id>.name / short / greeting / idle);
+//   name, greeting and idle are the English originals
 //   vendor.group (add to the scene), vendor.inRange( p ), vendor.update( dt, lookAt )
 export class Vendor {
 
-	constructor( { name, kind = 'buyer', position, yaw = 0, radius = 2.6, greeting = '', idle = '', material = null, look = {}, character = null } ) {
+	constructor( { id = null, name, kind = 'buyer', position, yaw = 0, radius = 2.6, greeting = '', idle = '', material = null, look = {}, character = null } ) {
 
+		this.id = id;
 		this.name = name;
 		this.kind = kind; // 'buyer' (fish stand) | 'shop' (upgrades)
 		this.greeting = greeting;
