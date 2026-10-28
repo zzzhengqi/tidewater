@@ -7,7 +7,7 @@
     "preview": "vite preview",
     "i18n:check": "node test/i18n-check.mjs",
     "i18n:preview": "node test/build-i18n-preview.js",
-    "test": "npm run i18n:check && node test/i18n.test.mjs && node test/keymap.test.mjs && node test/quality.test.mjs && node test/shore-sampler.mjs && node test/game-logic.mjs && node test/engine-smoke.mjs"
+    "test": "npm run i18n:check && node test/i18n.test.mjs && node test/keymap.test.mjs && node test/quality.test.mjs && node test/boards.test.mjs && node test/shore-sampler.mjs && node test/game-logic.mjs && node test/engine-smoke.mjs"
   },
   "devDependencies": {
     "vite": "^8.3.0",

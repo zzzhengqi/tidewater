@@ -1,11 +1,12 @@
 import { Group, Mesh, Vector3, Euler, Quaternion } from '../engine/index.js';
-import { prepare, mergePrepared, sphere, roundedBox, mat4 } from '../world/boat/GeoKit.js';
-import { createPropMaterial, PAT } from '../game/GameMaterials.js';
 import { ShoreSampler } from '../ocean/ShoreSampler.js';
 import { SPRAY } from '../fx/Spray.js';
 import { Options } from '../core/Options.js';
 import { t } from '../ui/i18n.js';
-import { DEFAULT_BOARD } from './SurfboardSpec.js';
+import { BOARDS, DEFAULT_BOARD } from './SurfboardSpec.js';
+import { buildBoardGeometry } from './BoardGeometry.js';
+import { BoardLook } from './BoardMaterial.js';
+import { BoardStore } from './BoardStore.js';
 
 // Surfing: the surfboard on the equipment wheel (R), no score, no goals.
 //
@@ -94,6 +95,26 @@ export const SURF_TUNING = {
 const T = SURF_TUNING;
 const GRAV = 9.81;
 
+// Surfing assist (gameplay option 'surfAssist', on by default). While the board is in the water the
+// shore waves grow and the sets even out (ShoreWaves `surfBoost`, eased in and out), the take-off
+// window is wider, Space pressed a little early is held until the wave arrives (the board turns to meet
+// it), the face lifts you as you paddle onto it, and an on-screen guide says where to point and when.
+export const SURF_ASSIST = {
+	catchMinH: 0.22,
+	catchFaceSlope: 0.02,
+	catchPhase: [ - 0.34, 0.14 ],
+	catchBreak: [ - 6, 1.5 ],
+	catchAlign: 0.34, // ≈ 70°
+	catchSpeed: 0.12,
+	hold: 2.2, // s a Space pressed early waits for the wave
+	holdTurn: 1.1, // rad/s the board turns toward the wave while it waits
+	lift: 1.4, // m/s^2 shoreward push while paddling on an approaching face
+	soon: 3.5, // s: the guide calls "paddle" for a wave this close
+	boostIn: 4, // s to ramp the bigger waves in ...
+	boostOut: 8, // ... and back to the settings after you leave the water
+};
+const A = SURF_ASSIST;
+
 const sat = ( x ) => ( x < 0 ? 0 : x > 1 ? 1 : x );
 const clamp = ( x, a, b ) => ( x < a ? a : x > b ? b : x );
 const smoothstep = ( a, b, x ) => {
@@ -110,23 +131,6 @@ const _yAxis = new Vector3( 0, 1, 0 );
 // the board's water points: ( along the board, across ) in units of 0.42 length / 0.45 width
 const WATER_POINTS = [ [ 0, 0 ], [ 1, 0 ], [ - 1, 0 ], [ 0, 1 ], [ 0, - 1 ] ];
 
-function boardGeometry( spec ) {
-
-	const L = spec.length, W = spec.width, H = spec.thickness, C = spec.colors;
-	const parts = [];
-	// the blank: a flattened ellipsoid, nose a little narrower (stretched forward)
-	parts.push( prepare( sphere( 1, 32, 12 ), { color: C.deck, rough: 0.35, matrix: mat4( 0, 0, 0, 0, 0, 0, W / 2, H / 2, L / 2 ) } ) );
-	// rails: a slightly wider, thinner coloured band
-	parts.push( prepare( sphere( 1, 32, 6 ), { color: C.rail, rough: 0.4, matrix: mat4( 0, - H * 0.08, 0, 0, 0, 0, W / 2 * 1.015, H / 2 * 0.55, L / 2 * 0.99 ) } ) );
-	// stringer stripe and deck pad
-	parts.push( prepare( roundedBox( 0.035, 0.004, L * 0.82, 0.0015, 1 ), { color: C.stripe, rough: 0.4, matrix: mat4( 0, H / 2 - 0.001, 0.02 ) } ) );
-	parts.push( prepare( roundedBox( W * 0.62, 0.006, L * 0.2, 0.003, 1 ), { color: 0x222628, rough: 0.9, pattern: PAT.rubber, matrix: mat4( 0, H / 2 - 0.004, - L * 0.36 ) } ) );
-	// fin
-	parts.push( prepare( roundedBox( 0.012, 0.13, 0.12, 0.004, 1 ), { color: C.fin, rough: 0.3, matrix: mat4( 0, - H / 2 - 0.06, - L * 0.42, - 0.25, 0, 0 ) } ) );
-	return mergePrepared( parts );
-
-}
-
 export class Surfing {
 
 	constructor( app ) {
@@ -134,7 +138,11 @@ export class Surfing {
 		this.app = app;
 		this.player = app.player;
 		this.input = app.input;
-		this.spec = DEFAULT_BOARD;
+		// the board: the player's current design from the board library (ui/BoardLibrary.js)
+		this.store = new BoardStore();
+		this.look = new BoardLook();
+		this._geos = new Map(); // board id -> geometry (shared with the library preview)
+		this.spec = BOARDS[ this.store.current.board ] || DEFAULT_BOARD;
 		this.sampler = new ShoreSampler( { shore: app.shore, field: app.shoreField, terrain: app.terrainData } );
 		this.state = 'off'; // off | carry | paddle | ride | loose
 		this.pos = new Vector3(); // board centre (x, water y, z)
@@ -158,6 +166,10 @@ export class Surfing {
 		this._tmp = {};
 		this._tmp2 = {};
 		this._pt = { x: 0, z: 0 };
+		this._tmpG = {};
+		// the next wave seaward of the board (assist guide): seconds away, height, already broken
+		this.next = { t: Infinity, H: 0, big: false, broken: false, zone: false };
+		this._held = 0; // s left on a Space pressed early (assist)
 		this.stats = { samples: 0, ms: 0 };
 		// the swell under the board (see _readWater): five query slots, one result per point + its rate
 		this.slot = app.query.allocate( 'surfboard', 5 );
@@ -170,16 +182,17 @@ export class Surfing {
 		this._fov = null; // the camera's own field of view while a ride widens it
 
 		// the board (first person: no body of your own for now)
-		const mat = createPropMaterial( 'surfboard' );
 		this.group = new Group();
 		this.group.name = 'Surfboard';
-		this.boardMesh = new Mesh( boardGeometry( this.spec ), mat );
+		this.boardMesh = new Mesh( this.geometry( this.spec ), this.look.material );
 		this.boardMesh.frustumCulled = false;
 		this.boardMesh.castShadow = true;
 		this.group.add( this.boardMesh );
 
 		this.group.visible = false;
 		app.scene.add( this.group );
+		this._pendingSpec = null;
+		this.applyDesign();
 
 		// the surfboard on the equipment wheel (core/Equipment.js); the 'surfing' gameplay option shows it
 		app.equipment.registry.add( {
@@ -187,6 +200,8 @@ export class Surfing {
 			visible: () => Options.get( 'surfing' ),
 			available: () => [ 'walk', 'swim', 'surf' ].includes( this.player.mode ),
 			busy: () => this.state === 'ride',
+			// the board library (ui/BoardLibrary.js, created by the UI) from a button beside the sector
+			action: { icon: 'palette', label: 'board.library', hint: 'board.libraryWheelHint', run: () => this.library && this.library.open() },
 			equip: () => this._equip(),
 			unequip: () => this._unequip(),
 		} );
@@ -227,6 +242,89 @@ export class Surfing {
 
 		const ui = this.app.ui && this.app.ui.ui;
 		if ( ui ) ui.toast( t( key ), ms );
+
+	}
+
+	// ---- the board library (ui/BoardLibrary.js): one geometry per board type, shared with its preview
+	geometry( spec ) {
+
+		let g = this._geos.get( spec.id );
+		if ( ! g ) {
+
+			g = buildBoardGeometry( spec );
+			this._geos.set( spec.id, g );
+
+		}
+
+		return g;
+
+	}
+
+	// the current design onto the board: the look at once, the board type (shape and handling) at once
+	// unless a wave is being ridden (then when the ride ends). reloadImage: the picture changed
+	applyDesign( { reloadImage = false } = {} ) {
+
+		const d = this.store.current;
+		const spec = BOARDS[ d.board ] || DEFAULT_BOARD;
+		if ( spec !== this.spec && this.state === 'ride' ) this._pendingSpec = spec;
+		else {
+
+			this._pendingSpec = null;
+			if ( spec !== this.spec || this.boardMesh.geometry !== this.geometry( spec ) ) {
+
+				this.spec = spec;
+				this.boardMesh.geometry = this.geometry( spec );
+
+			}
+
+		}
+
+		const key = d.image ? d.id : null;
+		if ( key !== this._imageKey || reloadImage ) {
+
+			this._imageKey = key;
+			const url = key ? this.store.image( d.id ) : null;
+			if ( ! url ) this.look.setImage( null );
+			else {
+
+				const token = this._imageToken = ( this._imageToken || 0 ) + 1;
+				decodeImage( url ).then( ( img ) => {
+
+					if ( token !== this._imageToken ) return;
+					this.look.setImage( img );
+					this.look.apply( this.spec, this.store.current );
+
+				} ).catch( () => {
+
+					if ( token === this._imageToken ) this.look.setImage( null );
+
+				} );
+
+			}
+
+		}
+
+		this.look.apply( this.spec, d );
+		if ( this.onDesign ) this.onDesign( this.spec );
+
+	}
+
+	get assist() {
+
+		return Options.get( 'surfAssist' );
+
+	}
+
+	// the bigger, more regular waves of the assist: eased in while the board is in the water, eased back
+	// out to the settings afterwards (ShoreWaves `surfBoost`; the CPU sampler reads it live)
+	_boost( dt ) {
+
+		const F = this.app.shore && this.app.shore.uniforms.fields.surfBoost;
+		if ( ! F ) return;
+		const want = this.assist && ( this.state === 'paddle' || this.state === 'ride' || this.state === 'loose' ) ? 1 : 0;
+		if ( F.value === want ) return;
+		const step = dt / ( want > F.value ? A.boostIn : A.boostOut );
+		F.value = want > F.value ? Math.min( want, F.value + step ) : Math.max( want, F.value - step );
 
 	}
 
@@ -356,7 +454,15 @@ export class Surfing {
 		this.sampler.count = 0;
 		this.stats.ms = 0;
 		const p = this.player;
-		if ( this.state === 'off' ) return;
+		if ( this.library ) this.library.update( dt );
+		this._boost( dt );
+		if ( this.state === 'off' ) {
+
+			this._guideHud( false );
+			return;
+
+		}
+
 		if ( this.state !== 'carry' ) {
 
 			this._readWater( dt );
@@ -373,6 +479,9 @@ export class Surfing {
 			case 'ride': this._ride( dt, freeCam ); break;
 
 		}
+
+		// a board type changed in the library mid-ride takes effect once the ride is over
+		if ( this._pendingSpec && this.state !== 'ride' ) this.applyDesign();
 
 		if ( this.active ) {
 
@@ -417,6 +526,7 @@ export class Surfing {
 		this.vy = 0;
 		this.air = 0;
 		this._surfY = undefined;
+		this._held = 0;
 		this._sv = 0;
 		this._headY = this._cp = this._cr = undefined;
 		this.lookYaw = 0;
@@ -470,36 +580,142 @@ export class Surfing {
 
 		}
 
+		const assist = this.assist;
+		this._scout( s );
+		if ( assist ) {
+
+			// the face of an approaching wave lifts you as you paddle onto it
+			const N = this.next, align = fx * s.dirX + fz * s.dirZ;
+			if ( fwd && N.big && ! N.broken && N.t < 1.2 && align > 0.2 ) {
+
+				this.vel.x += s.dirX * A.lift * dt;
+				this.vel.z += s.dirZ * A.lift * dt;
+
+			}
+
+			// Space pressed early: turn to meet the wave and take off the moment it is under the board
+			if ( this._held > 0 ) {
+
+				this._held -= dt;
+				const want = Math.atan2( s.dirX, s.dirZ );
+				const d = Math.atan2( Math.sin( want - this.heading ), Math.cos( want - this.heading ) );
+				this.heading += clamp( d, - A.holdTurn * dt, A.holdTurn * dt );
+				if ( this._verdict( s ) === 'ok' ) {
+
+					this._held = 0;
+					this._catch( s, vf );
+					return;
+
+				}
+
+				if ( this._held <= 0 ) this._tryCatch( s, vf );
+
+			}
+
+		}
+
 		if ( on ) {
 
 			p.prompt = { key: 'Space', text: t( 'prompt.paddle' ) };
-			if ( inp.hit( 'Space' ) ) this._tryCatch( s, vf );
+			if ( inp.hit( 'Space' ) ) this._tryCatch( s, vf, assist );
 
 		}
 
 	}
 
-	_tryCatch( s, vf ) {
+	// the next wave seaward of the board: the centre sample's phase gives the distance to the crest behind
+	// (u < 0: in front of a crest; u > 0: on the back of one, the next is a wavelength on), one more sample
+	// there tells how big it is (the guide and the held Space)
+	_scout( s ) {
 
+		const N = this.next;
+		N.zone = s.env > 0.05 && s.lam > 0 && s.c > 0.1;
+		if ( ! N.zone ) {
+
+			N.t = Infinity;
+			N.big = N.broken = false;
+			return;
+
+		}
+
+		const C = this._catchT();
+		const dist = ( s.u <= 0 ? - s.u : 1 - s.u ) * s.lam;
+		const n = this._sample( this.pos.x - s.dirX * dist, this.pos.z - s.dirZ * dist, this._tmpG );
+		N.t = dist / s.c;
+		N.H = Math.max( n.H || 0, n.Hc || 0 );
+		N.big = N.H > C.catchMinH && n.env > 0.1;
+		N.broken = n.b > C.catchBreak[ 1 ] && n.foam > 0.4;
+
+	}
+
+	// the take-off thresholds (wider with the assist)
+	_catchT() {
+
+		// the board: volume and length (catchEase) widen the window further
+		const key = ( this.assist ? 'a' : 't' ) + this.spec.id;
+		let C = this._catchCache && this._catchCache.get( key );
+		if ( C ) return C;
+		const B = this.assist ? A : T, e = this.spec.catchEase || 0;
+		C = {
+			catchMinH: B.catchMinH * ( 1 - 0.25 * e ),
+			catchFaceSlope: B.catchFaceSlope * ( 1 - 0.5 * e ),
+			catchPhase: [ B.catchPhase[ 0 ] - 0.08 * e, B.catchPhase[ 1 ] + 0.04 * e ],
+			catchBreak: B.catchBreak,
+			catchAlign: B.catchAlign - 0.12 * e,
+			catchSpeed: B.catchSpeed * ( 1 - 0.4 * e ),
+		};
+		( this._catchCache || ( this._catchCache = new Map() ) ).set( key, C );
+		return C;
+
+	}
+
+	// can the board take off on the wave under it now: 'ok' | 'whitewater' | 'noWave' | 'wrongDir' | 'tooSlow'
+	_verdict( s ) {
+
+		const C = this._catchT();
 		const along = this.vel.x * s.dirX + this.vel.z * s.dirZ;
 		const align = Math.sin( this.heading ) * s.dirX + Math.cos( this.heading ) * s.dirZ;
-		const onFace = s.env > 0.25 && s.H > T.catchMinH && s.u > T.catchPhase[ 0 ] && s.u < T.catchPhase[ 1 ] && s.slope < - T.catchFaceSlope;
+		const onFace = s.env > 0.25 && s.H > C.catchMinH && s.u > C.catchPhase[ 0 ] && s.u < C.catchPhase[ 1 ] && s.slope < - C.catchFaceSlope;
+		if ( s.foam > 0.55 && s.b > C.catchBreak[ 1 ] ) return 'whitewater';
+		if ( ! onFace || s.b < C.catchBreak[ 0 ] ) return 'noWave';
+		if ( s.b > C.catchBreak[ 1 ] ) return 'whitewater';
+		if ( align < C.catchAlign ) return 'wrongDir';
+		if ( along < C.catchSpeed * s.c ) return 'tooSlow';
+		return 'ok';
+
+	}
+
+	// Space while paddling. hold: with the assist, a press a little early (a rideable wave due within
+	// `hold` seconds) waits for it instead of failing
+	_tryCatch( s, vf, hold = false ) {
+
+		const v = this._verdict( s );
+		if ( v === 'ok' ) {
+
+			this._catch( s, vf );
+			return;
+
+		}
+
+		const N = this.next;
+		if ( hold && v !== 'whitewater' && N.big && ! N.broken && N.t < A.hold ) {
+
+			this._held = A.hold;
+			return;
+
+		}
+
 		const side = Math.sign( ( Math.cos( this.heading ) * s.dirX - Math.sin( this.heading ) * s.dirZ ) ) || 1;
-		if ( s.foam > 0.55 && s.b > T.catchBreak[ 1 ] ) {
+		if ( v === 'whitewater' ) {
 
 			this._toast( 'surf.whitewater' );
 			this.wobble = ( Math.random() < 0.5 ? - 1 : 1 ) * 0.12;
 
-		} else if ( ! onFace || s.b < T.catchBreak[ 0 ] ) {
+		} else if ( v === 'noWave' ) {
 
 			this._toast( 'surf.noWave' );
 
-		} else if ( s.b > T.catchBreak[ 1 ] ) {
-
-			this._toast( 'surf.whitewater' );
-			this.wobble = ( Math.random() < 0.5 ? - 1 : 1 ) * 0.12;
-
-		} else if ( align < T.catchAlign ) {
+		} else if ( v === 'wrongDir' ) {
 
 			// side-on to the wave: it shoves the board along and spins it
 			this._toast( 'surf.wrongDir' );
@@ -508,7 +724,7 @@ export class Surfing {
 			this.heading += side * 0.7;
 			this.wobble = ( Math.random() < 0.5 ? - 1 : 1 ) * 0.22;
 
-		} else if ( along < T.catchSpeed * s.c ) {
+		} else {
 
 			// too slow: the wave lifts you, gives a shove and rolls on under the board
 			this._toast( 'surf.tooSlow' );
@@ -516,18 +732,22 @@ export class Surfing {
 			this.vel.z += s.dirZ * s.c * 0.3;
 			this.wobble = ( Math.random() < 0.5 ? - 1 : 1 ) * 0.16;
 
-		} else {
-
-			this.state = 'ride';
-			const v = Math.max( vf, s.c * T.popSpeed );
-			this.vel.set( Math.sin( this.heading ) * v, 0, Math.cos( this.heading ) * v );
-			this.ride.t = this.ride.dist = 0;
-			this.ride.shownT = 0;
-			this._whiteT = this._fadeT = 0;
-			this._toast( 'surf.caught', 1600 );
-			if ( this.app.audio ) this.app.audio.splash( 0.3, this.player.position );
-
 		}
+
+	}
+
+	// the pop-up
+	_catch( s, vf ) {
+
+		this.state = 'ride';
+		this._held = 0;
+		const v = Math.max( vf, s.c * T.popSpeed );
+		this.vel.set( Math.sin( this.heading ) * v, 0, Math.cos( this.heading ) * v );
+		this.ride.t = this.ride.dist = 0;
+		this.ride.shownT = 0;
+		this._whiteT = this._fadeT = 0;
+		this._toast( 'surf.caught', 1600 );
+		if ( this.app.audio ) this.app.audio.splash( 0.3, this.player.position );
 
 	}
 
@@ -545,7 +765,9 @@ export class Surfing {
 		// little slower (the crest catches up), at the sweet spot just ahead of the crest at the wave's speed
 		const along = this.vel.x * s.dirX + this.vel.z * s.dirZ;
 		const target = s.c * ( T.carryFrac + T.phaseGain * clamp( s.u - T.sweetSpot, - 0.3, 0.1 ) );
-		const pull = ( target - along ) * face * T.carry * dt;
+		// a gun holds on in big, steep faces and bogs a little in small ones; soft, floaty boards the opposite
+		const fit = 1 + sp.bigWave * ( 0.35 * smoothstep( 0.9, 1.6, s.H ) - 0.25 * ( 1 - smoothstep( 0.5, 1.0, s.H ) ) ) + 0.15 * sp.catchEase * ( 1 - smoothstep( 0.6, 1.2, s.H ) );
+		const pull = ( target - along ) * face * T.carry * fit * dt;
 		this.vel.x += s.dirX * pull;
 		this.vel.z += s.dirZ * pull;
 		// carving, not steering: A / D shift your weight and roll the board onto a rail; the turn comes from
@@ -593,7 +815,7 @@ export class Surfing {
 
 		}
 
-		if ( this._whiteT > T.whitewaterTime ) return this._wipe( 'surf.wipeWhitewater' );
+		if ( this._whiteT > T.whitewaterTime * ( 0.6 + 0.8 * sp.stability ) ) return this._wipe( 'surf.wipeWhitewater' );
 		if ( this._fadeT > T.fadeTime || s.H < T.fadeHeight ) return this._wipe( 'surf.waveFaded' );
 		if ( on ) {
 
@@ -711,7 +933,7 @@ export class Surfing {
 		// in the air the board keeps its attitude (a little drift), on the water it lies on the surface
 		const tilt = airborne ? 0.5 : T.tiltRate * ( this.state === 'ride' ? 1 : 0.7 );
 		const pitch = Math.atan2( H[ 1 ] - H[ 2 ], 2 * h );
-		const roll = - Math.atan2( H[ 3 ] - H[ 4 ], 2 * w ) + ( this.state === 'ride' ? this.lean : 0 ) + this.wobble;
+		const roll = - Math.atan2( H[ 3 ] - H[ 4 ], 2 * w ) + ( this.state === 'ride' ? this.lean : 0 ) + this.wobble * ( 1.35 - 0.7 * sp.stability );
 		this.wobble *= Math.exp( - dt * 3 );
 		this.pitch += ( pitch - this.pitch ) * ( 1 - Math.exp( - dt * tilt ) );
 		this.roll += ( roll - this.roll ) * ( 1 - Math.exp( - dt * tilt ) );
@@ -722,7 +944,7 @@ export class Surfing {
 		// `railWet`), so the board is never pushed under however fast the water rises. The spring is also
 		// what smooths the read-back noise in the swell heights out of the motion.
 		const sinP = Math.sin( this.pitch ), sinR = Math.sin( this.roll );
-		const bottom = sp.thickness * 0.5 + ( this.state === 'paddle' ? T.freeboardProne : T.freeboardStand );
+		const bottom = sp.thickness * 0.5 + ( this.state === 'paddle' ? T.freeboardProne : T.freeboardStand ) + ( sp.buoyancy - 0.6 ) * 0.04;
 		let surface = ( 2 * H[ 0 ] + H[ 1 ] + H[ 2 ] + H[ 3 ] + H[ 4 ] ) / 6 + bottom;
 		let floor = Math.max( H[ 0 ], H[ 1 ] - h * sinP, H[ 2 ] + h * sinP, H[ 3 ] + w * sinR, H[ 4 ] - w * sinR ) + bottom - T.railWet;
 		if ( ! Number.isFinite( surface ) ) surface = water + bottom;
@@ -934,6 +1156,102 @@ export class Surfing {
 		const on = Options.get( 'surfHud' ) && this.ride.shownT > 0;
 		this.hudEl.classList.toggle( 'is-on', on );
 		if ( on ) this.hudEl.textContent = t( 'surf.hud', { time: t( 'unit.s', { v: this.ride.t.toFixed( 1 ) } ), dist: t( 'unit.m', { v: this.ride.dist.toFixed( 0 ) } ) } );
+		this._guideHud( true );
+
+	}
+
+	// ---- the assist guide while paddling: an arrow that points where the board should face (shoreward,
+	// or out to sea from the whitewater), relative to where you look, a ring that fills as the next
+	// rideable wave comes in, and one line of what to do
+	_guideHud( active ) {
+
+		const ui = this.app.ui && this.app.ui.ui;
+		if ( ! ui ) return;
+		if ( ! this.guideEl ) {
+
+			const el = this.guideEl = document.createElement( 'div' );
+			el.className = 'tw-surf-guide tw-glass';
+			el.innerHTML = '<div class="tw-surf-guide-dial"><svg class="tw-surf-guide-ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17"/><circle class="is-prog" cx="20" cy="20" r="17"/></svg>'
+				+ '<svg class="tw-surf-guide-arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 7 L29 24 L20 19.5 L11 24 Z"/></svg></div><span class="tw-surf-guide-text"></span>';
+			this._guideArrow = el.querySelector( '.tw-surf-guide-arrow' );
+			this._guideProg = el.querySelector( '.is-prog' );
+			this._guideText = el.querySelector( '.tw-surf-guide-text' );
+			this._guideLast = '';
+			( ui.hud || ui.root ).append( el );
+
+		}
+
+		const show = active && this.assist && this.state === 'paddle' && ! this.app.freeCam;
+		this.guideEl.classList.toggle( 'is-on', show );
+		if ( ! show ) return;
+		const s = this.s, N = this.next;
+		const align = Math.sin( this.heading ) * s.dirX + Math.cos( this.heading ) * s.dirZ;
+		const v = this._verdict( s );
+		let key, tone = '', toSea = false, arrow = true, prog = 0, params = null;
+		if ( v === 'ok' ) {
+
+			key = 'surf.guideNow';
+			tone = 'now';
+			arrow = false;
+			prog = 1;
+
+		} else if ( this._held > 0 ) {
+
+			key = 'surf.guideHeld';
+			tone = 'ready';
+			prog = 1 - this._held / A.hold;
+
+		} else if ( s.foam > 0.5 && s.b > 1.2 ) {
+
+			key = 'surf.guideWhitewater';
+			toSea = true;
+
+		} else if ( ! N.zone ) {
+
+			key = 'surf.guideFind';
+
+		} else if ( N.big && ! N.broken && N.t < A.soon ) {
+
+			prog = 1 - N.t / A.soon;
+			if ( align < A.catchAlign ) key = 'surf.guideTurn';
+			else {
+
+				key = 'surf.guidePaddle';
+				tone = 'soon';
+				params = { time: t( 'unit.s', { v: N.t.toFixed( 1 ) } ) };
+
+			}
+
+		} else if ( N.big && ! N.broken && N.t < 30 ) {
+
+			// a rideable one further out: count it down, point the board at the beach meanwhile
+			key = 'surf.guideNext';
+			prog = 1 - N.t / Math.max( A.soon + 0.1, s.lam / s.c );
+			params = { time: t( 'unit.s', { v: N.t.toFixed( 0 ) } ) };
+
+		} else key = 'surf.guideWait';
+
+		const text = t( key, params || undefined );
+		if ( text !== this._guideLast ) {
+
+			this._guideLast = text;
+			this._guideText.textContent = text;
+
+		}
+
+		this.guideEl.dataset.tone = tone;
+		this._guideArrow.style.display = arrow ? '' : 'none';
+		if ( arrow && Number.isFinite( s.dirX ) ) {
+
+			// heading increases to the left (A); CSS rotation is clockwise
+			const want = Math.atan2( toSea ? - s.dirX : s.dirX, toSea ? - s.dirZ : s.dirZ );
+			const view = this.heading + this.lookYaw;
+			const rel = Math.atan2( Math.sin( want - view ), Math.cos( want - view ) );
+			this._guideArrow.style.transform = `rotate(${ ( - rel * 180 / Math.PI ).toFixed( 1 ) }deg)`;
+
+		}
+
+		this._guideProg.style.strokeDashoffset = ( ( 1 - clamp( prog, 0, 1 ) ) * 106.8 ).toFixed( 1 );
 
 	}
 
@@ -979,5 +1297,38 @@ export class Surfing {
 		return { points: P.n, maxShoreOnly: P.max, rmsShoreOnly: Math.sqrt( P.sum / Math.max( P.n, 1 ) ), maxWithResidual: P.maxRes };
 
 	}
+
+}
+
+// a data URL -> ImageData (sRGB, straight alpha); no network: data URLs only
+function decodeImage( url ) {
+
+	return new Promise( ( resolve, reject ) => {
+
+		if ( typeof Image === 'undefined' || ! /^data:image\//.test( url ) ) return reject( new Error( 'no image' ) );
+		const im = new Image();
+		im.onload = () => {
+
+			try {
+
+				const c = document.createElement( 'canvas' );
+				c.width = im.naturalWidth;
+				c.height = im.naturalHeight;
+				const g = c.getContext( '2d', { willReadFrequently: true } );
+				g.drawImage( im, 0, 0 );
+				resolve( g.getImageData( 0, 0, c.width, c.height ) );
+
+			} catch ( e ) {
+
+				reject( e );
+
+			}
+
+		};
+
+		im.onerror = () => reject( new Error( 'decode' ) );
+		im.src = url;
+
+	} );
 
 }

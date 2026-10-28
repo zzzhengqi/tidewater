@@ -24,12 +24,15 @@ import { t, onLanguageChange } from './i18n.js';
 //   hold R     open, point, let go: takes the highlighted item (a quick tap leaves the wheel open)
 //   Esc, right click or a movement key: close without a change
 // Every sector shows its icon, name and number; the item in hand carries a sun-coloured dot, items that
-// can't be used here are dimmed with the reason in the centre. The wheel swallows the mouse and its own
+// can't be used here are dimmed with the reason in the centre. An item may carry a small side button
+// ( item.action = { icon, label, run } ) just outside its sector (the surfboard's board library): the
+// cursor can go a little past the ring to point at it, and a left click there runs it instead. The wheel swallows the mouse and its own
 // keys, so the camera doesn't turn and the rod doesn't cast while choosing.
 
 const VB = 200, R_OUT = 96, R_IN = 46, GAP = 1.6; // svg units; GAP in degrees between sectors
 const DEAD = 0.22; // virtual cursor dead zone (fraction of the outer radius)
 const HOLD_MS = 320; // R held at least this long and released: take the highlighted item
+const R_ACT = 113, ACT_HIT = 15; // side button: centre radius, and how far past it the cursor may go (svg units)
 
 const rad = ( d ) => d * Math.PI / 180;
 const pt = ( r, deg ) => [ ( VB / 2 + r * Math.cos( rad( deg ) ) ).toFixed( 2 ), ( VB / 2 + r * Math.sin( rad( deg ) ) ).toFixed( 2 ) ];
@@ -68,6 +71,7 @@ export class RadialWheel {
 		this.isOpen = false;
 		this.items = [];
 		this.hot = - 1;
+		this.hotAct = - 1; // the side button under the cursor (item index)
 		this.cursor = { x: 0, y: 0 };
 		this._downAt = 0;
 
@@ -140,6 +144,7 @@ export class RadialWheel {
 		const cur = this.items.findIndex( ( i ) => i.id === this.current() );
 		this.hot = cur >= 0 ? cur : 0;
 		this.cursor.x = this.cursor.y = 0;
+		this.hotAct = - 1;
 		this._lockedAtOpen = !! document.pointerLockElement;
 		this._build();
 		this.isOpen = true;
@@ -194,6 +199,12 @@ export class RadialWheel {
 			const [ x, y ] = pt( ( R_OUT + R_IN ) / 2 + 2, n > 1 ? mid : - 90 );
 			icons += `<span class="tw-wheel-item" data-i="${ i }" style="left:${ ( x / VB * 100 ).toFixed( 2 ) }%;top:${ ( y / VB * 100 ).toFixed( 2 ) }%;--d:${ i * 35 }ms">`
 				+ `${ icon( it.icon ) }<em>${ t( it.label ) }</em>${ i < 9 ? `<b>${ i + 1 }</b>` : '' }<i></i></span>`;
+			if ( it.action ) {
+
+				const [ ax, ay ] = pt( R_ACT, n > 1 ? mid : - 90 );
+				icons += `<span class="tw-wheel-act" data-i="${ i }" style="left:${ ( ax / VB * 100 ).toFixed( 2 ) }%;top:${ ( ay / VB * 100 ).toFixed( 2 ) }%">${ icon( it.action.icon ) }<em>${ t( it.action.label ) }</em></span>`;
+
+			}
 
 		} );
 		this.svg.innerHTML = `<circle class="tw-wheel-hub" cx="${ VB / 2 }" cy="${ VB / 2 }" r="${ R_IN - 3 }"/>${ paths }`;
@@ -201,6 +212,7 @@ export class RadialWheel {
 		this._sectors = [ ...this.svg.querySelectorAll( '.tw-wheel-sector' ) ];
 		this._rims = [ ...this.svg.querySelectorAll( '.tw-wheel-rim' ) ];
 		this._icons = [ ...this.iconsEl.querySelectorAll( '.tw-wheel-item' ) ];
+		this._acts = [ ...this.iconsEl.querySelectorAll( '.tw-wheel-act' ) ];
 		this.titleEl.textContent = t( this.title );
 		this.keysEl.innerHTML = t( 'wheel.controls' );
 		this.keys2El.innerHTML = t( 'wheel.controls2' );
@@ -222,13 +234,14 @@ export class RadialWheel {
 			}
 
 		} );
+		for ( const a of this._acts ) a.classList.toggle( 'is-hot', Number( a.dataset.i ) === this.hotAct );
 		const it = this.items[ this.hot ];
 		this.bigEl.innerHTML = it ? icon( it.icon ) : '';
 		this.nameEl.textContent = it ? t( it.label ) : '';
 		const off = it && ! this.registry.isAvailable( it );
 		this.stateEl.textContent = ! it ? '' : off ? t( 'wheel.unavailable' ) : it.id === cur ? t( 'wheel.equipped' ) : '';
 		this.stateEl.className = 'tw-wheel-state' + ( off ? ' is-off' : it && it.id === cur ? ' is-current' : '' );
-		this.hintEl.textContent = ! it ? '' : off ? t( it.unavailableHint || 'wheel.unavailableHint' ) : t( it.hint );
+		this.hintEl.textContent = ! it ? '' : this.hotAct === this.hot && it.action ? t( it.action.hint || it.action.label ) : off ? t( it.unavailableHint || 'wheel.unavailableHint' ) : t( it.hint );
 		this.cursorEl.style.transform = `translate(calc(-50% + ${ this.cursor.x.toFixed( 1 ) }px), calc(-50% + ${ this.cursor.y.toFixed( 1 ) }px))`;
 
 	}
@@ -337,17 +350,30 @@ export class RadialWheel {
 
 		}
 
+		// past the ring only as far as the side buttons
+		const lim = R * ( this._acts.length ? ( R_ACT + ACT_HIT * 0.6 ) / ( VB / 2 ) : 1 );
 		const d = Math.hypot( this.cursor.x, this.cursor.y );
-		if ( d > R ) {
+		if ( d > lim ) {
 
-			this.cursor.x *= R / d;
-			this.cursor.y *= R / d;
+			this.cursor.x *= lim / d;
+			this.cursor.y *= lim / d;
+
+		}
+
+		// the side buttons where they are on screen (the dial scales and turns in as it opens)
+		const n = this.items.length;
+		this.hotAct = - 1;
+		const cx = box.left + R, cy = box.top + R;
+		for ( const a of this._acts ) {
+
+			const r = a.getBoundingClientRect();
+			const hit = Math.max( r.width, r.height ) / 2 + 4;
+			if ( Math.hypot( this.cursor.x - ( r.left + r.width / 2 - cx ), this.cursor.y - ( r.top + r.height / 2 - cy ) ) < hit ) this.hotAct = Number( a.dataset.i );
 
 		}
 
 		if ( d > R * DEAD ) {
 
-			const n = this.items.length;
 			const a = ( Math.atan2( this.cursor.y, this.cursor.x ) * 180 / Math.PI + 90 + 360 + 180 / n ) % 360;
 			const i = Math.floor( a / ( 360 / n ) ) % n;
 			if ( i !== this.hot ) this.hot = i; // (an unavailable item can be pointed at: the centre says why)
@@ -363,6 +389,15 @@ export class RadialWheel {
 		if ( ! this.isOpen ) return;
 		e.preventDefault();
 		e.stopImmediatePropagation();
+		const act = e.button === 0 && this.hotAct >= 0 ? this.items[ this.hotAct ].action : null;
+		if ( act ) {
+
+			this.close();
+			act.run();
+			return;
+
+		}
+
 		this.close( e.button === 0 );
 
 	}
