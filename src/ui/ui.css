@@ -3058,3 +3058,34 @@ body {
 	.tw-boards-edit { grid-template-columns: 1fr; max-height: none; }
 	.tw-boards-pic { grid-column: 1; grid-row: auto; }
 }
+
+/* surfing assist: the "now" cue (Space, big, in the middle) */
+.tw-surf-cue {
+	position: absolute;
+	left: 50%;
+	top: 58%;
+	display: flex;
+	align-items: center;
+	gap: var(--tw-3);
+	transform: translate(-50%, -50%) scale(0.8);
+	color: var(--tw-sun);
+	font: 700 calc(26 * var(--tw-u)) var(--tw-font);
+	text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 120ms ease-out, transform 160ms var(--tw-ease);
+}
+
+.tw-surf-cue.is-on { opacity: 1; transform: translate(-50%, -50%) scale(1); animation: tw-surf-cue 0.5s ease-in-out infinite alternate; }
+.tw-surf-cue kbd {
+	padding: calc(6 * var(--tw-u)) calc(18 * var(--tw-u));
+	border-radius: calc(8 * var(--tw-u));
+	border: 2px solid var(--tw-sun);
+	background: rgba(12, 18, 26, 0.7);
+	color: var(--tw-ink);
+	font: 700 calc(20 * var(--tw-u)) var(--tw-font);
+	box-shadow: 0 0 calc(22 * var(--tw-u)) rgba(var(--tw-sun-rgb), 0.55);
+}
+
+@keyframes tw-surf-cue { to { transform: translate(-50%, -50%) scale(1.07); } }
+@media (prefers-reduced-motion: reduce) { .tw-surf-cue.is-on { animation: none; } }

@@ -591,4 +591,6 @@ export default {
 	'settings.folder.surfboard': "Surfboard",
 	'settings.boardLibrary': "Board library",
 	'settings.boardLibraryTip': "Choose a board, colour it and put your own picture on it.",
+
+	'surf.cueGo': "Take off!",
 };

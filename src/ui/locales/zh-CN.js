@@ -591,4 +591,6 @@ export default {
 	'settings.folder.surfboard': "冲浪板",
 	'settings.boardLibrary': "板库",
 	'settings.boardLibraryTip': "选择板型、配色，或贴上你自己的图片。",
+
+	'surf.cueGo': "起乘！",
 };
