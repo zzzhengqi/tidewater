@@ -40,7 +40,7 @@ export const SURF_TUNING = {
 	maxSlope: 1.2, // the steepest slope the board responds to (plunging faces are near vertical)
 	catchAlign: 0.6, // cos of the largest angle between the board and the wave's direction
 	catchSpeed: 0.38, // speed along the wave / wave speed needed (the wave lifting you helps)
-	popSpeed: 0.95, // speed after the pop-up, fraction of the wave speed
+	popSpeed: 1.1, // speed after the pop-up, fraction of the wave speed (you drop in down the face)
 	// paddling
 	paddleAccel: 1.8, // 1/s: how fast you reach paddling speed
 	paddleTurn: 0.8, // rad/s (lying down you turn slowly: one arm, then the other)
@@ -49,17 +49,19 @@ export const SURF_TUNING = {
 	paddleSlopeGravity: 0.35, // share of gravity along the surface slope while prone
 	whitewaterPush: 2.2, // m/s^2 shove of a bore's whitewater
 	// riding
-	rideGravity: 0.9, // share of gravity along the surface slope while standing
-	carry: 2.2, // 1/s: how strongly the face pulls you to its speed
-	carryFrac: 1.0, // ... toward the wave speed at the sweet spot
+	rideGravity: 1.2, // share of gravity along the surface slope while standing
+	carry: 3, // 1/s: how strongly the face pulls you to its speed
+	carryFrac: 1.12, // ... toward the wave speed at the sweet spot (a little faster: down the face)
 	sweetSpot: - 0.07, // phase just ahead of the crest where the face is steepest
 	phaseGain: 3, // speed target per unit of phase away from the sweet spot
 	pump: 1.4, // m/s^2 with W (more on a steep face)
 	brake: 1.3, // 1/s with S
 	grip: 6, // 1/s: rails bite (sideways speed bleeds off)
-	rideDrag: 0.12, // 1/s
+	rideDrag: 0.06, // 1/s
 	fullTurnSpeed: 4, // m/s: below this the carve is weaker
 	maxLean: 0.65, // rad
+	maxTrim: 1.25, // rad: the steepest angle across the face the wave still carries you at (≈ 72°)
+	trimDrive: 0.25, // extra speed along the line on a steep face (dropping a little down it as you go)
 	// wipeouts and the end of a ride
 	whitewaterFoam: 0.6, // whitewater under the board above this ...
 	whitewaterTime: 0.3, // ... for this long (s): wiped out
@@ -784,7 +786,7 @@ export class Surfing {
 		this.ride.t = this.ride.dist = 0;
 		this.ride.shownT = 0;
 		this._whiteT = this._fadeT = 0;
-		this._toast( 'surf.caught', 1600 );
+		this._toast( 'surf.caught', 3600 );
 		if ( this.app.audio ) this.app.audio.splash( 0.3, this.player.position );
 
 	}
@@ -805,7 +807,10 @@ export class Surfing {
 		const target = s.c * ( T.carryFrac + T.phaseGain * clamp( s.u - T.sweetSpot, - 0.3, 0.1 ) );
 		// a gun holds on in big, steep faces and bogs a little in small ones; soft, floaty boards the opposite
 		const fit = 1 + sp.bigWave * ( 0.35 * smoothstep( 0.9, 1.6, s.H ) - 0.25 * ( 1 - smoothstep( 0.5, 1.0, s.H ) ) ) + 0.15 * sp.catchEase * ( 1 - smoothstep( 0.6, 1.2, s.H ) );
-		const pull = ( target - along ) * face * T.carry * fit * dt;
+		// (with the assist the wave keeps hold of you near its crest, where the face flattens out, so a slow
+		// drift up to the crest or into a lower shoulder doesn't lose it at once)
+		const held = this.assist ? Math.max( face, 0.35 * s.env * smoothstep( 0.3, 0.1, s.u ) * smoothstep( - 0.45, - 0.25, s.u ) * smoothstep( T.fadeHeight, 0.4, s.H ) ) : face;
+		const pull = ( target - along ) * held * T.carry * fit * dt;
 		this.vel.x += s.dirX * pull;
 		this.vel.z += s.dirZ * pull;
 		// carving, not steering: A / D shift your weight and roll the board onto a rail; the turn comes from
@@ -829,9 +834,40 @@ export class Surfing {
 		let vf = this.vel.x * fx + this.vel.z * fz, vs = this.vel.x * rx + this.vel.z * rz;
 		vs *= Math.exp( - dt * T.grip );
 		if ( vf < 0 ) vf *= Math.exp( - dt * 3 );
-		this.vel.set( fx * vf + rx * vs, 0, fz * vf + rz * vs ).multiplyScalar( Math.exp( - dt * T.rideDrag ) );
+		const gX = fx * vf + rx * vs, gZ = fz * vf + rz * vs;
+		// trimming down the line: on the face the wave sets how fast you go toward the beach (you keep up
+		// with it) and the board's angle to it adds the run along the crest on top, so angling across the
+		// face is faster than going straight in (speed = toward-the-beach speed / cos angle) and keeps you
+		// on the wave instead of running ahead of it into the flats
+		const eX = - s.dirZ, eZ = s.dirX; // along the crest
+		const ca = fx * s.dirX + fz * s.dirZ, sa = fx * eX + fz * eZ;
+		const trim = smoothstep( 0.04, 0.25, held ) * smoothstep( 0.12, 0.35, ca );
+		if ( trim > 0 ) {
+
+			const vd = this.vel.x * s.dirX + this.vel.z * s.dirZ;
+			const ang = clamp( Math.atan2( sa, ca ), - T.maxTrim, T.maxTrim );
+			const ve = Math.max( 0, vd ) * Math.tan( ang ) * ( 1 + T.trimDrive * face );
+			this.vel.set( gX + ( s.dirX * vd + eX * ve - gX ) * trim, 0, gZ + ( s.dirZ * vd + eZ * ve - gZ ) * trim );
+
+		} else this.vel.set( gX, 0, gZ );
+
+		this.vel.multiplyScalar( Math.exp( - dt * T.rideDrag ) );
 		speed = Math.hypot( this.vel.x, this.vel.z );
-		if ( speed > sp.maxSpeed ) this.vel.multiplyScalar( sp.maxSpeed / speed );
+		if ( speed > sp.maxSpeed ) {
+
+			// over the board's top speed: on a face give up speed along the crest first, never the speed that
+			// keeps you with the wave (or it runs away from you)
+			const vd = this.vel.x * s.dirX + this.vel.z * s.dirZ, ve = this.vel.x * eX + this.vel.z * eZ;
+			if ( trim > 0.5 && vd > 0 && vd < sp.maxSpeed ) {
+
+				const ve2 = Math.sign( ve ) * Math.sqrt( sp.maxSpeed * sp.maxSpeed - vd * vd );
+				this.vel.set( s.dirX * vd + eX * ve2, 0, s.dirZ * vd + eZ * ve2 );
+
+			} else this.vel.multiplyScalar( sp.maxSpeed / speed );
+
+			speed = sp.maxSpeed;
+
+		}
 		this.pos.x += this.vel.x * dt;
 		this.pos.z += this.vel.z * dt;
 		this.ride.t += dt;
@@ -839,10 +875,20 @@ export class Surfing {
 		this._spray( dt, s, speed, face );
 
 		// the end of the ride
-		this._whiteT = s.foam > T.whitewaterFoam && s.b > 1 ? this._whiteT + dt : 0;
+		// with the assist a broken wave's whitewater carries you in (riding the foam, as on a soft top) instead
+		// of knocking you off; only the lip as it falls (just after the break) still does
+		const bore = s.foam > T.whitewaterFoam && s.b > 1;
+		if ( bore && this.assist ) {
+
+			this.vel.x += s.dirX * T.whitewaterPush * 1.6 * s.foam * dt;
+			this.vel.z += s.dirZ * T.whitewaterPush * 1.6 * s.foam * dt;
+
+		}
+
+		this._whiteT = bore && ( ! this.assist || s.b < 1.3 ) ? this._whiteT + dt : 0;
 		// the wave has gone on without you (behind its crest, off the face) or you have all but stopped;
 		// out in the flats ahead of a broken wave you wait for its whitewater instead
-		this._fadeT = ( s.u > 0.04 && face < 0.05 ) || speed < T.stallSpeed ? this._fadeT + dt : 0;
+		this._fadeT = ( s.u > 0.04 && held < 0.05 ) || speed < T.stallSpeed ? this._fadeT + dt : 0;
 		const water = s.h + this.residual;
 		const ground = p.groundAt( this.pos.x, this.pos.z, water + 1 );
 		if ( water - ground < T.rockDepth && this._rocky( this.pos.x, this.pos.z, ground ) ) return this._wipe( 'surf.wipeRocks' );

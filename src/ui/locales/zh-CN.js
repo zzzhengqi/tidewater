@@ -372,10 +372,10 @@ export default {
 	'mode.surfing': "冲浪中",
 
 	'prompt.paddle': "起乘   ·   W A S D  划水   ·   Shift  更用力",
-	'prompt.ride': "跳下   ·   A D  转向   ·   W  压浪加速   ·   S  减速",
+	'prompt.ride': "跳下   ·   A D  侧身横向滑行   ·   W  压浪加速   ·   S  减速",
 	'prompt.rightBoat': "扶正船体",
 
-	'surf.caught': "站起来了，正在冲浪！",
+	'surf.caught': "站起来了！用 A / D 压板边侧身沿着浪面横向滑行，会更快",
 	'surf.tooSlow': "太慢了：浪从你身下滚过去了。浪抬起你时用力划（Shift）。",
 	'surf.wrongDir': "板头要对准沙滩才能接住浪。",
 	'surf.noWave': "这里没有可接的浪：等一组浪过来，在正要破碎的浪峰前面划水。",
