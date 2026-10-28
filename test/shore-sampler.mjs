@@ -96,12 +96,13 @@ const cases = [
 	{ name: 'surf preset (H 1.5 m, T 13 s)', amplitude: 0.75, period: 13, gamma: 0.78, curl: 1 },
 	{ name: 'storm (H 1.8 m, T 12 s, gamma 0.9)', amplitude: 0.9, period: 12, gamma: 0.9, curl: 1.4 },
 	{ name: 'small (H 0.3 m, T 6 s, curl 0.3)', amplitude: 0.15, period: 6, gamma: 0.6, curl: 0.3 },
+	{ name: 'surf boost (default sea, surfing assist on)', amplitude: 0.34, period: 9, gamma: 0.78, curl: 1, surfBoost: 1 },
 ];
 const times = [ 31.25, 47.9, 1203.4, 6021.7 ];
 let worst = 0, failed = false, active = 0;
 for ( const c of cases ) {
 
-	F.amplitude.value = c.amplitude; F.period.value = c.period; F.gamma.value = c.gamma; F.curl.value = c.curl;
+	F.amplitude.value = c.amplitude; F.period.value = c.period; F.gamma.value = c.gamma; F.curl.value = c.curl; F.surfBoost.value = c.surfBoost || 0;
 	let max = 0, sum = 0, n = 0, at = null;
 	for ( const t of times ) {
 

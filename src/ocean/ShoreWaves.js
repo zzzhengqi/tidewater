@@ -188,6 +188,9 @@ export class ShoreWaves {
 			curl: [ 'f32', 1.0 ],
 			runup: [ 'f32', 1.0 ],
 			enabled: [ 'f32', 1.0 ],
+			// surfing assist (surf/Surfing.js): 0 = the settings as they are; 1 = waves 50% bigger and the sets
+			// flattened (most waves in a set big enough to ride). Eased in and out by the surf code
+			surfBoost: [ 'f32', 0.0 ],
 			turbidity: [ 'f32', 0.16 ], // sediment + bubble scattering in the surf zone (1/m)
 			// direction texture region (buildDirTexture); dirOn = 0 until it exists
 			dirMin: [ 'vec2f', new Vector2() ],
@@ -310,7 +313,7 @@ fn shoreWobble( along: f32 ) -> f32 {
 
 fn shoreWaveAmp( m: f32, along: f32 ) -> f32 {
 	// sets: groups of ~7 waves with larger ones in the middle, plus per-wave randomness
-	let waveSet = abs( sin( m * ${ f( Math.PI / 7 ) } ) ) * 0.6 + 0.55;
+	let waveSet = mix( abs( sin( m * ${ f( Math.PI / 7 ) } ) ) * 0.6 + 0.55, 1.05, shoreP.surfBoost * 0.6 );
 	let rnd = ( shoreHash1( m ) - 0.5 ) * 2.0;
 	// along-shore variation so waves peel instead of closing out
 	// peaks ~40-50 m wide with lower shoulders between them, different for every wave (the warp keeps
@@ -321,7 +324,7 @@ fn shoreWaveAmp( m: f32, along: f32 ) -> f32 {
 	// (plus a shorter ~20 m variation: bores that rise and sag along the crest, more peel sections)
 	let a3 = sin( along * 0.29 + m * 2.3 + warp * 0.5 ) * 0.6 + sin( along * 0.47 + m * 5.9 + 0.8 ) * 0.4;
 	let alongV = a1 * 0.6 + a2 * 0.4 + a3 * 0.28;
-	return max( shoreP.amplitude * waveSet * ( 1.0 + rnd * shoreP.variation * 0.5 + alongV * shoreP.variation * 0.7 ) * shoreBar( along ).k, 0.02 );
+	return max( shoreP.amplitude * ( 1.0 + shoreP.surfBoost * 0.5 ) * waveSet * ( 1.0 + rnd * shoreP.variation * 0.5 + alongV * shoreP.variation * 0.7 ) * shoreBar( along ).k, 0.02 );
 }
 
 // ------------------------------------------------------------ cross-section shape

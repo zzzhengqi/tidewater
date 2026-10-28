@@ -6,6 +6,7 @@ import { Options } from '../core/Options.js';
 import { codesOf } from '../core/Keymap.js';
 import { english } from './i18n.js';
 import { RadialWheel } from './RadialWheel.js';
+import { BoardLibrary } from './BoardLibrary.js';
 import { WORLD } from '../world/WorldLayout.js';
 
 // offshore wind: blowing from the beach out to sea, against the swell (degrees, the wind-direction slider's convention)
@@ -214,6 +215,14 @@ export class AppUI {
 		const options = playTab.addFolder( 'Gameplay options', { icon: 'gameplay' } );
 		for ( const o of Options.list() ) options.addToggle( { label: english( o.label ), tooltip: o.tip ? english( o.tip ) : undefined, object: play, key: o.id } );
 		// way out when the boat is capsized, aground or far away (E beside a capsized boat rights her too)
+		// the board library (no key of its own: here and the surfboard's button on the wheel)
+		if ( app.surf ) {
+
+			app.surf.library = new BoardLibrary( app, ui );
+			playTab.addFolder( 'Surfboard', { icon: 'surfboard' } ).addButton( { label: 'Board library', icon: 'palette', tooltip: 'Choose a board, colour it and put your own picture on it.', onClick: () => app.surf.library.open() } );
+
+		}
+
 		playTab.addFolder( 'Boat', { icon: 'boat' } ).addButton( { label: 'Tow the boat back to the pier', icon: 'anchor', tooltip: 'Brings the boat back to her berth, upright, from wherever she is. Anyone aboard comes along.', onClick: () => app.towBoat() } );
 		const applyOptions = () => {
 
@@ -236,7 +245,7 @@ export class AppUI {
 			closeCodes: [ ...codesOf( 'move' ), ...codesOf( 'up' ), ...codesOf( 'down' ), ...codesOf( 'sprint' ) ],
 			canOpen: () => {
 
-				if ( ui._start || ui._help || ui._photo || ( app.game && app.game.guide && app.game.guide.open ) ) return false;
+				if ( ui._start || ui._help || ui._photo || ( app.game && app.game.guide && app.game.guide.open ) || ( app.surf && app.surf.library && app.surf.library.isOpen ) ) return false;
 				return eq.busy ? 'wheel.busy' : true;
 
 			},

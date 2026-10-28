@@ -68,14 +68,14 @@ function shoreWobble( along, bar ) {
 
 function shoreWaveAmp( m, along, U, bar ) {
 
-	const waveSet = Math.abs( Math.sin( m * ( Math.PI / 7 ) ) ) * 0.6 + 0.55;
+	const waveSet = mix( Math.abs( Math.sin( m * ( Math.PI / 7 ) ) ) * 0.6 + 0.55, 1.05, U.surfBoost * 0.6 );
 	const rnd = ( shoreHash1( m ) - 0.5 ) * 2;
 	const warp = Math.sin( along * 0.016 + m * 0.9 ) * 1.6;
 	const a1 = Math.sin( along * 0.062 + m * 1.7 + warp );
 	const a2 = Math.sin( along * 0.13 + m * 4.1 + 1.3 - warp * 0.7 );
 	const a3 = Math.sin( along * 0.29 + m * 2.3 + warp * 0.5 ) * 0.6 + Math.sin( along * 0.47 + m * 5.9 + 0.8 ) * 0.4;
 	const alongV = a1 * 0.6 + a2 * 0.4 + a3 * 0.28;
-	return Math.max( U.amplitude * waveSet * ( 1 + rnd * U.variation * 0.5 + alongV * U.variation * 0.7 ) * bar.k, 0.02 );
+	return Math.max( U.amplitude * ( 1 + U.surfBoost * 0.5 ) * waveSet * ( 1 + rnd * U.variation * 0.5 + alongV * U.variation * 0.7 ) * bar.k, 0.02 );
 
 }
 
@@ -179,6 +179,7 @@ export class ShoreSampler {
 		U.breakSpan = F.breakSpan.value;
 		U.curl = F.curl.value;
 		U.enabled = F.enabled.value;
+		U.surfBoost = F.surfBoost.value;
 		return U;
 
 	}
