@@ -591,4 +591,6 @@ export default {
 	'settings.folder.surfboard': "サーフボード",
 	'settings.boardLibrary': "ボードライブラリ",
 	'settings.boardLibraryTip': "ボードを選び、色を付けたり自分の画像を貼ったりできます。",
+
+	'surf.cueGo': "テイクオフ！",
 };

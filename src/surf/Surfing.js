@@ -100,13 +100,14 @@ const GRAV = 9.81;
 // window is wider, Space pressed a little early is held until the wave arrives (the board turns to meet
 // it), the face lifts you as you paddle onto it, and an on-screen guide says where to point and when.
 export const SURF_ASSIST = {
-	catchMinH: 0.22,
+	catchMinH: 0.18,
 	catchFaceSlope: 0.02,
 	catchPhase: [ - 0.34, 0.14 ],
-	catchBreak: [ - 6, 1.5 ],
-	catchAlign: 0.34, // ≈ 70°
-	catchSpeed: 0.12,
-	hold: 2.2, // s a Space pressed early waits for the wave
+	catchBreak: [ - 12, 1.5 ], // unbroken swells too (a beginner's wave on a big board)
+	catchAlign: 0.17, // ≈ 80° (the pop-up turns you the rest of the way)
+	catchSpeed: 0, // any forward speed: the face lifts you
+	hold: 3, // s a Space pressed early waits for the wave
+	popTurn: 0.6, // rad the pop-up turns the board toward the wave's direction
 	holdTurn: 1.1, // rad/s the board turns toward the wave while it waits
 	lift: 1.4, // m/s^2 shoreward push while paddling on an approaching face
 	soon: 3.5, // s: the guide calls "paddle" for a wave this close
@@ -306,6 +307,30 @@ export class Surfing {
 
 		this.look.apply( this.spec, d );
 		if ( this.onDesign ) this.onDesign( this.spec );
+
+	}
+
+	// Leaving the free camera far from the board (App.setFreeCam): you go on from the camera, as on foot,
+	// and the board comes with you: under the arm on land or while falling, lying on it again once you are
+	// in the water (the carry state mounts it). Near the board the view just returns to it.
+	shouldRelocate( pos ) {
+
+		return this.state === 'carry' || this.state === 'off' ? false : Math.hypot( pos.x - this.pos.x, pos.z - this.pos.z ) > 25 || Math.abs( pos.y - this.pos.y ) > 25;
+
+	}
+
+	relocate() {
+
+		this.state = 'carry';
+		this._held = 0;
+		this._pendingSpec && this.applyDesign();
+		this.vel.set( 0, 0, 0 );
+		this.vy = 0;
+		this.air = 0;
+		this.water.valid = false;
+		this.boardMesh.castShadow = false;
+		this.group.visible = true;
+		this._restoreFov();
 
 	}
 
@@ -527,6 +552,8 @@ export class Surfing {
 		this.air = 0;
 		this._surfY = undefined;
 		this._held = 0;
+		this.water.valid = false; // the swell read-backs were for wherever the board was before
+		this.water.off.fill( 0 );
 		this._sv = 0;
 		this._headY = this._cp = this._cr = undefined;
 		this.lookYaw = 0;
@@ -618,6 +645,8 @@ export class Surfing {
 
 			p.prompt = { key: 'Space', text: t( 'prompt.paddle' ) };
 			if ( inp.hit( 'Space' ) ) this._tryCatch( s, vf, assist );
+			// (with the assist, keeping Space down takes off as soon as the wave allows)
+			else if ( assist && this.state === 'paddle' && inp.down( 'Space' ) && this._verdict( s ) === 'ok' ) this._catch( s, vf );
 
 		}
 
@@ -644,7 +673,8 @@ export class Surfing {
 		N.t = dist / s.c;
 		N.H = Math.max( n.H || 0, n.Hc || 0 );
 		N.big = N.H > C.catchMinH && n.env > 0.1;
-		N.broken = n.b > C.catchBreak[ 1 ] && n.foam > 0.4;
+		// (it keeps breaking on the way in: one that is close to it here is whitewater by the time it arrives)
+		N.broken = n.b > C.catchBreak[ 1 ] - 1 && n.foam > 0.2;
 
 	}
 
@@ -741,6 +771,14 @@ export class Surfing {
 
 		this.state = 'ride';
 		this._held = 0;
+		if ( this.assist && Number.isFinite( s.dirX ) ) {
+
+			const want = Math.atan2( s.dirX, s.dirZ );
+			const d = Math.atan2( Math.sin( want - this.heading ), Math.cos( want - this.heading ) );
+			this.heading += clamp( d, - A.popTurn, A.popTurn );
+
+		}
+
 		const v = Math.max( vf, s.c * T.popSpeed );
 		this.vel.set( Math.sin( this.heading ) * v, 0, Math.cos( this.heading ) * v );
 		this.ride.t = this.ride.dist = 0;
@@ -1160,6 +1198,35 @@ export class Surfing {
 
 	}
 
+	// ---- the "now" cue: the Space key, big in the middle of the screen, with a whoosh as it appears
+	_cue( on ) {
+
+		const ui = this.app.ui && this.app.ui.ui;
+		if ( ! ui ) return;
+		if ( ! this.cueEl ) {
+
+			this.cueEl = document.createElement( 'div' );
+			this.cueEl.className = 'tw-surf-cue';
+			this.cueEl.setAttribute( 'aria-live', 'assertive' );
+			this.cueEl.innerHTML = '<kbd></kbd><b></b>';
+			( ui.hud || ui.root ).append( this.cueEl );
+
+		}
+
+		if ( on === this._cueOn ) return;
+		this._cueOn = on;
+		if ( on ) {
+
+			this.cueEl.querySelector( 'kbd' ).textContent = t( 'key.space' );
+			this.cueEl.querySelector( 'b' ).textContent = t( 'surf.cueGo' );
+			if ( this.app.audio && this.app.audio.whoosh ) this.app.audio.whoosh( 0.45 );
+
+		}
+
+		this.cueEl.classList.toggle( 'is-on', on );
+
+	}
+
 	// ---- the assist guide while paddling: an arrow that points where the board should face (shoreward,
 	// or out to sea from the whitewater), relative to where you look, a ring that fills as the next
 	// rideable wave comes in, and one line of what to do
@@ -1183,10 +1250,19 @@ export class Surfing {
 
 		const show = active && this.assist && this.state === 'paddle' && ! this.app.freeCam;
 		this.guideEl.classList.toggle( 'is-on', show );
-		if ( ! show ) return;
+		if ( ! show ) {
+
+			this._cue( false );
+			return;
+
+		}
+
 		const s = this.s, N = this.next;
 		const align = Math.sin( this.heading ) * s.dirX + Math.cos( this.heading ) * s.dirZ;
 		const v = this._verdict( s );
+		// the best moment to press Space: the wave can be taken now, or it is close enough that a press
+		// waits for it (and nothing is held yet)
+		this._cue( this._held <= 0 && ( v === 'ok' || ( N.big && ! N.broken && N.t < A.hold * 0.8 && align > A.catchAlign ) ) );
 		let key, tone = '', toSea = false, arrow = true, prog = 0, params = null;
 		if ( v === 'ok' ) {
 

@@ -591,4 +591,6 @@ export default {
 	'settings.folder.surfboard': "서핑보드",
 	'settings.boardLibrary': "보드 라이브러리",
 	'settings.boardLibraryTip': "보드를 고르고 색을 칠하거나 직접 고른 그림을 붙일 수 있습니다.",
+
+	'surf.cueGo': "테이크오프!",
 };

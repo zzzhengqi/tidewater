@@ -574,9 +574,20 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 			this.fly.setPose( this.camera.position.clone(), e.y, e.x );
 			this.fly.velocity.set( 0, 0, 0 );
 
-		} else if ( this.player.mode !== 'boat' && this.player.mode !== 'deck' && this.player.mode !== 'surf' ) {
+		} else if ( this.player.mode === 'surf' ) {
 
-			// (aboard or surfing the view simply goes back to the boat / board)
+			// surfing: back to the board, unless the camera flew off somewhere else; then you carry on from
+			// there and the board comes along (Surfing.relocate)
+			if ( this.surf && this.surf.shouldRelocate( this.camera.position ) ) {
+
+				this.dropPlayerAtCamera();
+				this.surf.relocate();
+
+			}
+
+		} else if ( this.player.mode !== 'boat' && this.player.mode !== 'deck' ) {
+
+			// (aboard the view simply goes back to the boat)
 			this.dropPlayerAtCamera();
 
 		}

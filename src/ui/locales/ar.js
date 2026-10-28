@@ -591,4 +591,6 @@ export default {
 	'settings.folder.surfboard': "لوح ركوب الأمواج",
 	'settings.boardLibrary': "مكتبة الألواح",
 	'settings.boardLibraryTip': "اختر لوحًا ولوّنه وضع عليه صورتك.",
+
+	'surf.cueGo': "انطلق!",
 };
