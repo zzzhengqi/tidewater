@@ -372,10 +372,10 @@ export default {
 	'mode.surfing': "波乗り中",
 
 	'prompt.paddle': "テイクオフ   ·   W A S D  パドル   ·   Shift  強く",
-	'prompt.ride': "飛び降りる   ·   A D  ターン   ·   W  加速   ·   S  減速",
+	'prompt.ride': "飛び降りる   ·   A D  波に沿って横へ   ·   W  加速   ·   S  減速",
 	'prompt.rightBoat': "ボートを起こす",
 
-	'surf.caught': "立った！ 波に乗っています",
+	'surf.caught': "立った！ A / D で体重をかけて波に沿って横に走ると速くなる",
 	'surf.tooSlow': "遅すぎて波が下を抜けていきました。持ち上げられたら Shift で強くパドル。",
 	'surf.wrongDir': "ボードの先を浜に向けないと波に乗れません。",
 	'surf.noWave': "ここには乗れる波がありません。セットを待って、崩れかけたピークの前でパドルしよう。",

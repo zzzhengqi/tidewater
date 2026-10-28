@@ -372,10 +372,10 @@ export default {
 	'mode.surfing': "Riding a wave",
 
 	'prompt.paddle': "Catch the wave   ·   W A S D  paddle   ·   Shift  harder",
-	'prompt.ride': "Jump off   ·   A D  carve   ·   W  pump   ·   S  slow down",
+	'prompt.ride': "Jump off   ·   A D  angle along the wave   ·   W  pump   ·   S  slow down",
 	'prompt.rightBoat': "Right the boat",
 
-	'surf.caught': "Up and riding!",
+	'surf.caught': "Up and riding! Lean with A / D to angle along the wave: faster down the line",
 	'surf.tooSlow': "Too slow: the wave rolled under you. Paddle hard (Shift) as it lifts you.",
 	'surf.wrongDir': "Point the board at the beach to catch the wave.",
 	'surf.noWave': "No wave to catch here: wait for a set, then paddle in front of the breaking peak.",

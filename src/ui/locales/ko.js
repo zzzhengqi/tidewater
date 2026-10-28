@@ -372,10 +372,10 @@ export default {
 	'mode.surfing': "파도 타는 중",
 
 	'prompt.paddle': "테이크오프   ·   W A S D  패들   ·   Shift  더 세게",
-	'prompt.ride': "뛰어내리기   ·   A D  카빙   ·   W  펌핑   ·   S  감속",
+	'prompt.ride': "뛰어내리기   ·   A D  파도 따라 옆으로   ·   W  펌핑   ·   S  감속",
 	'prompt.rightBoat': "보트 바로 세우기",
 
-	'surf.caught': "일어섰다! 파도를 타는 중",
+	'surf.caught': "일어섰다! A / D로 기울여 파도를 따라 옆으로 달리면 더 빨라요",
 	'surf.tooSlow': "너무 느려서 파도가 아래로 지나갔어요. 파도가 들어 올릴 때 Shift로 세게 패들하세요.",
 	'surf.wrongDir': "보드 앞을 해변 쪽으로 향해야 파도를 잡을 수 있어요.",
 	'surf.noWave': "여기엔 탈 파도가 없어요. 세트를 기다렸다가 부서지기 시작하는 봉우리 앞에서 패들하세요.",
