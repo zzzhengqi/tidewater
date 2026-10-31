@@ -1,5 +1,10 @@
 name: Deploy to GitHub Pages
 
+# The site: this branch (main, the released version) at the root, https://zzzhengqi.github.io/tidewater/,
+# and the v2 preview (branch main-v2) under /v2/, https://zzzhengqi.github.io/tidewater/v2/. Both builds use
+# relative asset paths, so each runs from its own folder. A push to main-v2 asks for this workflow to run
+# again (main-v2's .github/workflows/publish-v2.yml), so the preview follows that branch.
+
 on:
   push:
     branches: [ main ]
@@ -25,6 +30,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # the v2 preview, from its own branch, into dist/v2
+      - uses: actions/checkout@v4
+        with:
+          ref: main-v2
+          path: v2-src
+      - run: npm ci
+        working-directory: v2-src
+      - run: npm run build
+        working-directory: v2-src
+      - run: |
+          mkdir -p dist/v2
+          cp -r v2-src/dist/. dist/v2/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
