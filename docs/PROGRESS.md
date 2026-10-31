@@ -18,7 +18,8 @@
 | `upstream` | github.com/dgreenheck/tidewater | 上游（自研 WebGPU 引擎 + WGSL，带钓鱼玩法） |
 | `backup-fork-old` | `d9fcc35` | 换底座前的旧 main（three.js/TSL 版 + 多语言）。**不要动它**，是退路 |
 | `main-v2` | 基于 `upstream/main` `4811ba4`，已推送到 `origin/main-v2` | 新版开发分支（新底座 + 多语言 + 轮盘 / 玩法选项） |
-| `main` | 与 `origin/main` 一致（旧版） | 线上站点从这里部署；新版完成前不要覆盖 |
+| `main` | 旧版代码 + 新的部署工作流（`0be46e5`） | 线上站点从这里部署：根目录是旧版（与之前逐字节相同的构建），`/v2/` 是 `main-v2` 的新版；新版完成前不要用新版覆盖根目录 |
+| 标签 `live-v1-backup` | `d9fcc35` | 旧版发布时的快照（只读备份） |
 
 旧 fork 相对上游合并基点 `d32799f` 只有 3 个自己的提交：`6606368`（设置面板多语言、独立预览）、`35310a5`（语言菜单配色）、
 `d9fcc35`（README 演示链接指向本 fork）。这些改动已全部移植到 `main-v2`，three.js 代码没有带回来。
@@ -236,6 +237,21 @@ F1 帮助页由 `Keymap.js` 的 `KEYMAP` 自动生成，不再手写；带 `opti
 | `shallowDepth` / `rockDepth` | 0.45 / 0.6 m | 浅滩结束 / 撞礁落水 |
 | `leash` / `remountDelay` / `wadeMount` | 2.6 m / 1.4 s / 0.65 m | 脚绳、重新上板延迟、下水趴板深度 |
 | SurfboardSpec：`paddleSpeed` / `paddleBoost` / `turnRate` / `maxSpeed` / `buoyancy` | 1.9 m/s / 1.45 / 1.6 rad/s / 9.5 m/s / 0.6 | 板型 |
+
+## 发布与试玩链接
+
+| 链接 | 内容 | 来源 |
+|---|---|---|
+| https://zzzhengqi.github.io/tidewater/ | 旧版（不变） | `main` 分支构建，放在站点根目录 |
+| https://zzzhengqi.github.io/tidewater/v2/ | **新版试玩**（会员资源库展示用） | `main-v2` 分支构建，放在 `/v2/` |
+
+- 部署工作流在 `main` 的 `.github/workflows/deploy.yml`：先按原样构建旧版到 `dist/`，再检出 `main-v2` 构建到 `dist/v2/`，一起上传到 GitHub Pages。
+  两个版本都用相对资源路径（`vite.config.js` 的 `base: './'`），所以放在任何子目录都能运行。工作流权限没有变（`contents: read`、`pages: write`、`id-token: write`）。
+- **更新新版**：先推送 `main-v2`，再到 GitHub → `zzzhengqi/tidewater` → Actions → Deploy to GitHub Pages → **Run workflow**（分支选 `main`），约 1–3 分钟后 `/v2/` 更新。
+  这个仓库是 fork，GitHub 默认不在 fork 上自动运行推送触发的工作流（Actions 页面顶部的提示），之前的两次部署也都是手动运行；为了稳妥没有改这个仓库设置。
+  如果以后想推送即自动部署，需要用户自己在 Actions 页面点 "I understand my workflows, go ahead and enable them"。
+- 以后新版正式取代旧版时：把 `main-v2` 合并到 `main` 时要处理 `main` 上的 deploy.yml（改回只构建根目录，或继续保留 `/v2/`）；这一步需要先问用户。
+- 曾尝试单独建仓库 `tidewater-island` 作为新链接，GitHub 拒绝了创建（"You can't perform that action at this time."），因此改为同仓库的 `/v2/` 子目录。
 
 ## 冲浪辅助（玩法选项 `surfAssist`，默认开）
 
