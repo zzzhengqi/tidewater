@@ -6,7 +6,7 @@ board in the board library, give it your own colours or a picture). Fishing from
 own boat is there too, as an option. It runs directly on WebGPU and WGSL with its own small rendering engine,
 no framework. The interface speaks English, 简体中文, 日本語, 한국어 and العربية.
 
-**Play it (v2):** https://zzzhengqi.github.io/tidewater-island/ — needs a WebGPU browser (recent Chrome / Edge;
+**Play it (v2):** https://zzzhengqi.github.io/tidewater/v2/ — needs a WebGPU browser (recent Chrome / Edge;
 Safari 26+). The earlier version stays at https://zzzhengqi.github.io/tidewater/ (upstream:
 https://dgreenheck.github.io/tidewater/).
 
